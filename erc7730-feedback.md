@@ -74,7 +74,8 @@ If the security assumptions is a "compromized laptop interacting with non-compro
 And as ERC-7730 already solves a lot of the issues related to representing a transaction signature request to the user, it may be better to just add support for "simulation" outcome metadata in the ERC-7730.
 This may include things like storage layout, contract's roles, actual values etc.
 
-This becomes especially relevant in the context of Transaction Assertions, a mechanism by which the smart contract account runs a post-transaction script verifying the actual changes match the original intention.
+This becomes especially relevant in the context of Transaction Assertions (with or without EIP-7906) - a mechanism by which the smart contract account runs a post-transaction script verifying the actual changes match the original intention.
+It is crucial that we can display these assertions inside the secure wallet interface.
 
 ## 4. Attestations
 
@@ -86,11 +87,19 @@ Maintaining public standardized attestations along the public registry will lowe
 
 ## 5. Specifications Registry & Revocation process
 
-I assume this can be a separate ERC or not, but it seems like a missed opportunity if we don't end up with some kind of an on-chain open public permissionless decentralized censorship-resistant open-source etc. registry for ERC-7730 specifications, and instead end up relying on Microsoft's github.com repository controlled by the Ethereum Foundation.
+I assume this should be a separate ERC, but it seems like a huge missed opportunity if we don't end up with some kind of an on-chain open public permissionless decentralized censorship-resistant open-source etc. registry for ERC-7730 specifications, and instead end up relying on Microsoft's github.com repository controlled by the Ethereum Foundation.
 
 Practically, updating a git repo is also a relatively slow process. If a well known public contract ends up hacked, it may take a long time to revoke its specifications and remove it from the github registry.
 This can be made instantaneous on-chain.
 
-Please let me know if there is already an ongoing effort to implement something like that, I would love to learn more.
+Revocation is also something I believe should be explicitly defined in ERC-7730 - what the "revoked" specification looks like?
+
+Please let me know if there is already an ongoing effort to define and implement something like that, I would love to learn more.
+
+## 6. Proxy detection
+
+It seems like there is no universal mechanism to confidently detect a contract as a proxy with a single known implementation, but, in your opinion, would it be useful to define a universal "eth_getProxyImplementation" heuristic API with a formally defined behaviour?
+
+This seems like a very significant part of a clear signing process, and it sounds a little bit underspecced.
 
 
