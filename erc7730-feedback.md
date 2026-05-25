@@ -26,7 +26,9 @@ It would be difficult to express such a relationship using the current ERC-7730 
 
 I expect atomic multi-step actions to become much more ubiquitous on Ethereum relatively soon, and the distinction between "approve(MAX_UINT256); swap(100); approve(0);" executed atomically and non-atomically is extremely significant -one is guaranteed to spend no more than 100 tokens, the other leaves an infinite dangling approval!
 
-My suggestion is to expose relationships between `calldata` elements in the ERC-7730 description of a batch, and work on making "interpolatedIntent" field compatible with grammatically correct expressions of such relationships. 
+I understand that inter-call relationships are not properties of any individual function call, and how addressing this issue is stretching the scope of ERC-7730.
+However, as ERC-7730 is the standardized channel for hardware wallets, so if we do not define at least some way of expressing these relationships, it will be hard to define them later.
+My suggestion would be to define a thin, optional batch-level metadata in ERC-7730 to expose the relationship between `calldata` elements (atomic, sequential, etc.) so that this information is at least available if needed.
 
 ### Execution Composability
 
@@ -61,45 +63,61 @@ While ERC-7730 itself is clearly designed to be an extensible format, the text o
 I suggest adopting an approach from ERC-5792 "capabilities" feature, by explicitly defining a way for writing extension ERCs, specifying what they can and cannot change in the core proposal.
 There should also be a way for the wallet to request for the most suitable JSON specification from the registry.
 
-Specifically, I believe `"context"`, `bytes` formatting (`raw`/`calldata`), encryption formats etc. should be explicitly marked as extensible.
+Specifically, I believe `"context"`, `bytes` formatting (`raw`/`calldata`), encryption formats, internationalization of display strings, and container value sets (e.g. `@.from`, `@.value` and their semantics for novel transaction types) should be explicitly marked as extensible.
 
 ## 3. Transaction Outcome Simulation and Transaction Assertions
 
-Currently ERC-7730 treates transaction simulation feature as being "downstream" of clear signing.
+Currently, ERC-7730 treats the transaction simulation feature as being "downstream" of clear signing.
 
-This may be a controversial take, but I believe the results of the transaction simulation deserve to be displayed on the hardware wallet display as well:
-The data shown in the simulation is not more or less trusted compared to the "clear signing" specification - it is returned by a wallet backend and is probably signed by this backend's key to prevent tampering.
-If the security assumptions is a "compromized laptop interacting with non-compromized hardware wallet", it is much better to display the outcome of the transaction simulation on the hardened device.
+I believe the results of transaction simulation deserve to be displayed on the hardware wallet display as well, under a trust model similar to the one already used for clear signing specifications.
 
-And as ERC-7730 already solves a lot of the issues related to representing a transaction signature request to the user, it may be better to just add support for "simulation" outcome metadata in the ERC-7730.
-This may include things like storage layout, contract's roles, actual values etc.
+As ERC-7730 already solves the representational challenges of displaying structured transaction data, it would be natural to add an optional "simulation outcome" metadata format.
 
 This becomes especially relevant in the context of Transaction Assertions (with or without EIP-7906) - a mechanism by which the smart contract account runs a post-transaction script verifying the actual changes match the original intention.
 It is crucial that we can display these assertions inside the secure wallet interface.
 
 ## 4. Attestations
 
-I did not look into ERC-8176 yet, however I agree with the idea of natively defining a format for ERC-7730 specifications' attestation as part of the protocol.
-
-Otherwise we seem to be creating a very locked-down ecosystem where each wallet will need to solve this issue on its own backend server, and some will surely fail to solve it securely, and users will lose funds.
-
-Maintaining public standardized attestations along the public registry will lower the barrier to safe adoption of ERC-7730 for all wallets by a lot.
+ERC-8176 proposes a good foundation for this, and I personally like the idea of natively defining a format for ERC-7730 specifications' attestation as part of the protocol.
 
 ## 5. Specifications Registry & Revocation process
 
 I assume this should be a separate ERC, but it seems like a huge missed opportunity if we don't end up with some kind of an on-chain open public permissionless decentralized censorship-resistant open-source etc. registry for ERC-7730 specifications, and instead end up relying on Microsoft's github.com repository controlled by the Ethereum Foundation.
 
-Practically, updating a git repo is also a relatively slow process. If a well known public contract ends up hacked, it may take a long time to revoke its specifications and remove it from the github registry.
-This can be made instantaneous on-chain.
+Practically, updating a git repo is also a relatively slow process.
+If a well-known public contract ends up hacked, it may take a long time to revoke its specifications and remove it from the GitHub registry.
+This can be made way faster and permissionlessly with on-chain registry with attestations.
 
 Revocation is also something I believe should be explicitly defined in ERC-7730 - what the "revoked" specification looks like?
 
-Please let me know if there is already an ongoing effort to define and implement something like that, I would love to learn more.
+Please let me know if there is already an ongoing effort to define and implement something like that. I would love to learn more about it.
 
 ## 6. Proxy detection
 
-It seems like there is no universal mechanism to confidently detect a contract as a proxy with a single known implementation, but, in your opinion, would it be useful to define a universal "eth_getProxyImplementation" heuristic API with a formally defined behaviour?
+It seems like there is no universal mechanism to confidently detect a contract as a proxy with a single known implementation.
+However, in your opinion, would it be useful to define a universal "eth_getProxyImplementation" heuristic API with a formally defined behavior?
 
-This seems like a very significant part of a clear signing process, and it sounds a little bit underspecced.
+This seems like a very significant part of a clear signing process, and it sounds a little bit underspecified.
 
+## 7. Field-level descriptions
 
+The current field format specification supports a `label` as a short name like "Amount", but has no place for a longer plain-language explanation of what a field means in context.
+
+It may not always be actually clear what the meaning of a field is.
+
+For example:
+
+```
+Amount: 10 USDC
+ⓘ This is the maximum amount of tokens you are willing to sell. The actual amount may be less.
+```
+
+An optional `description` key on field format specifications would cover this naturally.
+Wallets with enough screen space to show a "more info" pop-up could display it, and resource-constrained hardware wallets would simply ignore it.
+
+---
+
+Please let me know if any of these are already being addressed in other ERCs or were explicitly rejected.
+I would love to hear your feedback and to start prototyping approved ideas as well.
+
+Thanks!
