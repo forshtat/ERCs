@@ -1,0 +1,33 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "version": "2.0.0",
+    "type": "object",
+    "description": "ERC-8283 descriptor index schema. The entry point of a shared multi-descriptor container, mapping ERC-8176 descriptorHash values to the ERC-7730 descriptor JSON file each one identifies. Versioned in lockstep with the ERC-7730 descriptor schema carrying the identical version tag — see ERC-8283 'Index file schemas and versioning'.",
+    "required": ["version", "entries"],
+    "additionalProperties": false,
+
+    "properties": {
+
+        "version": {
+            "title": "Schema version",
+            "type": "string",
+            "const": "2.0.0",
+            "description": "Identical to the ERC-7730 descriptor schema version this index is paired with. A consumer MUST treat an index declaring a version it does not implement as invalid."
+        },
+
+        "entries": {
+            "title": "Descriptor entries",
+            "type": "object",
+            "description": "Maps each descriptorHash to the absolute URI of the ERC-7730 descriptor JSON file it identifies.",
+            "propertyNames": {
+                "pattern": "^0x[0-9a-fA-F]{64}$"
+            },
+            "additionalProperties": {
+                "title": "Descriptor URI",
+                "type": "string",
+                "format": "uri",
+                "description": "An absolute URI using the identical scheme that was used to successfully fetch this index.json itself — see 'Index file schemas and versioning' in ERC-8283. Never a relative path."
+            }
+        }
+    }
+}

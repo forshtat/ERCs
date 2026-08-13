@@ -17,6 +17,7 @@ const registry = new ethers.Contract(REGISTRY_ADDRESS, IClearSigningRegistryAbi)
 const attesterSigner = new ethers.Wallet(ATTESTER_PRIVATE_KEY)
 const relayerWallet = new ethers.Wallet(RELAYER_PRIVATE_KEY)
 const ipfsPinner = new ethers.Wallet(PINNING_PRIVATE_KEY) // independent IPFS mirror operator
+const killSwitchSigner = new ethers.Wallet(KILL_SWITCH_PRIVATE_KEY) // kept offline; only ever used in §11
 
 const mainnetChainId = 1
 const optimismChainId = 10
@@ -311,7 +312,9 @@ await registry.connect(attesterSigner).updateAttestationMirrorList(
 );
 ```
 
-## 8. `setAttesterProfileURI` and `getAttesterProfileURI`
+## 8. `setAttesterProfile` — profile, revocation oracle, and kill-switch key in one registration
+
+This call doubles as attester registration: `revocationOracle` is write-once from this first call onward, and `killSwitchKey` needs a fresh two-way binding signature — from the key itself, not the attester — whenever it changes, which includes this very first call.
 
 ```ts
 // The profile JSON itself lives off-chain in the following format:
@@ -322,11 +325,46 @@ await registry.connect(attesterSigner).updateAttestationMirrorList(
 //     "securityContact": "mailto:security@attester.example.com"
 //   }
 
-await registry.connect(attesterSigner).setAttesterProfileURI(
-  /* attester */ attesterSigner.address, /* profileURI */ "ipfs://bafybeigd.../attester-profile.json", /* signature */ "0x",
+// An already-deployed IRevocationOracle-compatible contract this attester opts into —
+// see §10. Passing 'ethers.ZeroAddress' here instead opts out of external sync entirely.
+const revocationOracleAddress = "0xRevocationOracle000000000000000000000000";
+
+const profileNonce = await registry.getNonce(attesterSigner.address);
+const killSwitchBindingTypes = { /* ... KillSwitchBinding(address attester, address killSwitchKey, uint256 nonce) */ };
+
+// The nominated key itself signs — proof it is controlled and that its holder consents
+// to being nominated, independent of the attester's own signature below.
+const killSwitchSignature = await killSwitchSigner.signTypedData(eip712domain, killSwitchBindingTypes, {
+  attester: attesterSigner.address,
+  killSwitchKey: killSwitchSigner.address,
+  nonce: profileNonce,
+});
+
+await registry.connect(attesterSigner).setAttesterProfile(
+  /* attester */            attesterSigner.address,
+  /* profileURI */          "ipfs://bafybeigd.../attester-profile.json",
+  /* revocationOracle */    revocationOracleAddress,
+  /* killSwitchKey */       killSwitchSigner.address,
+  /* signature */           "0x", // msg.sender === attester, so the attester's own signature is skipped
+  /* killSwitchSignature */ killSwitchSignature,
 );
 
 const profileURI = await registry.getAttesterProfileURI(attesterSigner.address);
+const registeredOracle = await registry.getRevocationOracle(attesterSigner.address);
+const registeredKillSwitchKey = await registry.getKillSwitchKey(attesterSigner.address);
+```
+
+A later call that only rotates `profileURI` reuses the same `killSwitchKey` and passes an empty `killSwitchSignature` — it's ignored unless the key actually changes:
+
+```ts
+await registry.connect(attesterSigner).setAttesterProfile(
+  attesterSigner.address,
+  "ipfs://bafybeigd.../attester-profile-v2.json",
+  revocationOracleAddress,        // MUST repeat the value already on record — write-once
+  killSwitchSigner.address,       // unchanged, so no fresh binding signature is required
+  "0x",
+  "0x",
+);
 ```
 
 A consumer that already trusts `attesterSigner.address` renders the profile only after checking the back-reference:
@@ -383,6 +421,70 @@ const resolved = await registry.resolveDescriptors(
 // shape identical to §3's output — one entry per contextKeyId, same fields
 ```
 
+## 10. `synchronizeRevocations` — pulling a revocation from the attester's registered oracle
+
+The Staking descriptor's device-native rendition (`stakingDeviceAttestationId`, registered in §2) is backed by a vendor system that also tracks its own revocation state, exposed through the `IRevocationOracle` address the attester registered in §8. Anyone — a keeper, the wallet vendor, an unrelated third party — can pull that state into the registry once the vendor system revokes it there:
+
+```solidity
+// IRevocationOracle.sol — the entire vocabulary the registry has for an external source
+interface IRevocationOracle {
+    function isRevoked(address attester, bytes32 attestationId, bytes32 attestationFormatId)
+        external view returns (bool revoked);
+}
+```
+
+```ts
+// Permissionless — no signature, no relationship to the caller required.
+// stakingSetId names the whole set; the registry looks up its member IDs internally
+// and queries the oracle once per member.
+await registry.synchronizeRevocations(
+  /* attester */          attesterSigner.address,
+  /* attestationSetIds */ [stakingSetId],
+);
+
+// If the oracle reported 'stakingDeviceAttestationId' as revoked, this now reads non-zero —
+// exactly as if 'revokeAttestations' had been called directly for that one member.
+const deviceRevokedAt = await registry.getRevocationTimestamp(attesterSigner.address, stakingDeviceAttestationId);
+```
+
+A set ID unknown to `attesterSigner`, or an attester with no oracle configured (`revocationOracle === ethers.ZeroAddress`), is silently skipped rather than reverting — see "`synchronizeRevocations`" in the ERC for the full fail-closed behavior when the oracle reverts, runs out of the fixed gas stipend, or returns malformed data.
+
+## 11. `kill` — responding to a leaked attester key with the kill-switch key
+
+Say `ATTESTER_PRIVATE_KEY` above leaks. Anyone holding it could sign new fraudulent registrations, so the response has to permanently retire `attesterSigner.address`, not just revoke what is currently active. Only the offline `killSwitchSigner` registered in §8 — or the (now-untrusted) attester key itself — can do this:
+
+```ts
+// killSwitchSigner calls directly — no signature needed, matching the pattern already
+// used for msg.sender === attester elsewhere in this interface.
+await registry.connect(killSwitchSigner).kill(
+  /* attester */ attesterSigner.address,
+  /* signature */ "0x",
+);
+```
+
+Every subsequent read reflects the kill immediately, with no per-record cleanup required:
+
+```ts
+const killedAt = await registry.getAttesterKilledAt(attesterSigner.address); // non-zero now
+
+// Every attestation from this attester now resolves as revoked, including ones that
+// were never individually revoked — the kill timestamp is the fallback value.
+const stillRevokedAt = await registry.getRevocationTimestamp(attesterSigner.address, newAttestationId);
+
+// A resolveDescriptors call naming this attester still returns entries for it (the
+// records themselves are not erased), but every 'revokedAt' field is now non-zero.
+const resolvedAfterKill = await registry.resolveDescriptors(
+  [attesterSigner.address], [mainnetContextKeyId], [descriptorSchemaMajor], [], ["ipfs:", "https:"],
+);
+
+// The leaked key can never register again:
+await registry.connect(attesterSigner).createAttestations(
+  attesterSigner.address, [newDescriptor], descriptorMirrorListId, attestationMirrorListId, "0x",
+); // reverts with AttesterIsKilled
+```
+
+The legitimate operator resumes under a freshly generated address — there is no un-kill path.
+
 ## Errors at a glance
 
 | Error | Raised when | See |
@@ -404,3 +506,10 @@ const resolved = await registry.resolveDescriptors(
 | `EmptyKeys` | `updateDescriptorMirrorList`/`updateAttestationMirrorList` is given an empty key array | §6 |
 | `MissingRevocation` | a descriptor in `createAttestations` displaces an active record whose set id isn't recorded as revoked yet — see §4/§5 for the required revoke-then-register order | §5 |
 | `InvalidRegistrationSignature` | any relayed `signature` fails to verify for the named attester | §5 |
+| `RevocationOracleImmutable` | `setAttesterProfile` is called with a `revocationOracle` value that differs from the one already on record | §8 |
+| `KillSwitchKeyEqualsAttester` | `setAttesterProfile` is called with `killSwitchKey == attester` | §8 |
+| `ZeroKillSwitchKey` | `setAttesterProfile` is called with `killSwitchKey == address(0)` | §8 |
+| `InvalidKillSwitchSignature` | `killSwitchKey` changes but `killSwitchSignature` doesn't verify as a `KillSwitchBinding` by the new key | §8 |
+| `AttesterAlreadyKilled` | `kill` is called for an attester that is already killed | §11 |
+| `InvalidKillSignature` | `kill` is called relayed and `signature` verifies against neither the attester nor its `killSwitchKey` | §11 |
+| `AttesterIsKilled` | `createAttestations` is called for an attester killed via `kill` | §11 |

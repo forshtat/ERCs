@@ -41,7 +41,9 @@ interface IClearSigningRegistry {
         bytes32 attestationId;
         /// A format identifier calculated as keccak256("erc7730.attestation.<format>")
         bytes32 attestationFormatId;
-        /// The timestamp at which the attester revoked this attestation ID, or 0 if never revoked.
+        /// The timestamp at which the attester revoked this attestation ID, or 0 if never
+        /// revoked. Also reflects the attester's 'kill' timestamp — see 'getAttesterKilledAt'
+        /// — when the specific ID was never individually revoked but the attester is killed.
         uint64 revokedAt;
     }
 
@@ -136,10 +138,23 @@ interface IClearSigningRegistry {
         bytes32 indexed attestationMirrorListId
     );
 
-    /// @notice Emitted when an attester's profile document URI changes.
-    /// @param attester    The attester whose profile changed.
-    /// @param profileURI  The new profile document URI.
-    event AttesterProfileUpdated(address indexed attester, string profileURI);
+    /// @notice Emitted when an attester's profile/config is set or updated via 'setAttesterProfile'.
+    /// @param attester         The attester whose profile changed.
+    /// @param profileURI       The new profile document URI.
+    /// @param revocationOracle The attester's revocation oracle (write-once — unchanged after the first call).
+    /// @param killSwitchKey    The attester's current kill-switch key.
+    event AttesterProfileUpdated(
+        address indexed attester,
+        string          profileURI,
+        address         revocationOracle,
+        address         killSwitchKey
+    );
+
+    /// @notice Emitted exactly once, permanently, when an attester is killed via 'kill'.
+    /// @param attester  The attester that was killed.
+    /// @param killedBy  The address that authorized the kill — 'attester' itself or its 'killSwitchKey'.
+    /// @param timestamp The block timestamp at which the kill was recorded.
+    event AttesterKilled(address indexed attester, address indexed killedBy, uint64 timestamp);
 
     /// @notice Thrown when descriptors is empty.
     error EmptyDescriptors();
@@ -201,6 +216,37 @@ interface IClearSigningRegistry {
     ///         'revokeAttestations' call — 'createAttestations' never revokes on its own.
     error MissingRevocation(bytes32 missingAttestationId);
 
+    /// @notice Thrown when 'setAttesterProfile' is called with a 'revocationOracle' value
+    ///         that differs from the one already on record. The field is write-once: fixed
+    ///         permanently by the attester's first call, to prevent an ambiguous mid-stream
+    ///         change in which past attestations were synced under one trust assumption and
+    ///         later ones under another.
+    error RevocationOracleImmutable();
+
+    /// @notice Thrown when 'setAttesterProfile' is called with 'killSwitchKey == attester'.
+    error KillSwitchKeyEqualsAttester();
+
+    /// @notice Thrown when 'setAttesterProfile' is called with 'killSwitchKey == address(0)'.
+    ///         Unlike 'revocationOracle', a kill-switch key is mandatory: opting out would
+    ///         defeat the one purpose this field exists for.
+    error ZeroKillSwitchKey();
+
+    /// @notice Thrown when 'setAttesterProfile' changes 'killSwitchKey' but 'killSwitchSignature'
+    ///         does not verify as a valid 'KillSwitchBinding' signature by the new key itself —
+    ///         proof that its holder controls it and consents to the binding.
+    error InvalidKillSwitchSignature();
+
+    /// @notice Thrown when 'kill' is called with a 'signature' that verifies against neither
+    ///         the attester nor its registered 'killSwitchKey'.
+    error InvalidKillSignature();
+
+    /// @notice Thrown when 'kill' is called for an attester that is already killed.
+    error AttesterAlreadyKilled();
+
+    /// @notice Thrown by 'createAttestations' when 'attester' has been killed via 'kill' —
+    ///         permanently and unconditionally, regardless of signature validity.
+    error AttesterIsKilled();
+
     /// @notice Register a batch of descriptors backed by attestations.
     ///
     ///         The attester produces the signed attestation artifacts locally and stores them off-chain.
@@ -220,6 +266,9 @@ interface IClearSigningRegistry {
     ///         'MissingRevocation'. Callers that want both steps in one transaction MUST
     ///         batch them themselves (e.g. via a multicall or an EIP-5792 call bundle) —
     ///         the registry does not provide atomicity across its own functions.
+    ///
+    ///         Reverts with 'AttesterIsKilled' if 'attester' has been killed via 'kill' —
+    ///         permanently and unconditionally, regardless of signature validity.
     ///
     /// @param attester       The address of the attester registering the descriptors.
     /// @param descriptors    The descriptors to register, each carrying its attestation set.
@@ -263,12 +312,38 @@ interface IClearSigningRegistry {
         bytes             calldata signature
     ) external;
 
-    /// @notice The timestamp at which 'attester' revoked 'attestationId' or 0 if never revoked.
+    /// @notice The timestamp at which 'attester' revoked 'attestationId', or 0 if neither
+    ///         individually revoked nor covered by an attester-wide 'kill'.
+    ///
+    ///         Falls back to 'getAttesterKilledAt(attester)' when the specific ID was never
+    ///         individually revoked but the attester has since been killed.
     ///
     /// @param attester       The attester whose revocation is being checked for the specified attestation ID.
     /// @param attestationId  The queried attestation ID.
     /// @return timestamp  The revocation timestamp, or 0 if not revoked.
     function getRevocationTimestamp(address attester, bytes32 attestationId) external view returns (uint64 timestamp);
+
+    /// @notice Permissionlessly pull revocation state from 'attester's registered
+    ///         'revocationOracle' — see 'setAttesterProfile' — for a batch of attestation
+    ///         sets, and record any it reports as revoked.
+    ///
+    ///         For each 'attestationSetId': silently skipped (no revert, no state change) if
+    ///         'attester' has no 'revocationOracle' configured (i.e. it is 'address(0)'), or
+    ///         if the set is unknown to 'attester' — matching 'revokeAttestations'' existing
+    ///         precedent of skipping stale/unknown references, so one bad ID in a batch from
+    ///         many attesters does not poison the whole call.
+    ///
+    ///         For each known set's member attestation IDs, queries the oracle via a
+    ///         gas-capped, return-size-capped 'staticcall' to 'IRevocationOracle.isRevoked'.
+    ///         A revert, out-of-gas, or malformed return from the oracle is treated as
+    ///         'false' (fail-closed) — this call never reverts because of a misbehaving
+    ///         oracle. A 'true' result feeds the exact same one-way revocation record
+    ///         'revokeAttestations' itself writes: once revoked, always revoked, regardless
+    ///         of what the oracle reports afterward.
+    ///
+    /// @param attester           The attester whose attestations are being synchronized.
+    /// @param attestationSetIds  The attestation sets to check against the oracle.
+    function synchronizeRevocations(address attester, bytes32[] calldata attestationSetIds) external;
 
     /// @notice Resolve all active attestation sets for the specified query with a filter.
     ///         The request fields are:
@@ -315,6 +390,36 @@ interface IClearSigningRegistry {
     /// @notice Invalidates the caller's current EIP-712 nonce and cancel any outstanding signature using that nonce.
     function invalidateNonce() external;
 
+    /// @notice Permanently retires 'attester': every past and future attestation from this
+    ///         address is treated as revoked (see 'getRevocationTimestamp',
+    ///         'resolveDescriptors'), and 'createAttestations' rejects it forever after.
+    ///
+    ///         This is a one-way tombstone with no un-kill path — by design. The scenario
+    ///         this exists for is a leaked attester signing key: a kill that only revoked
+    ///         existing records but still let the compromised key register new ones would
+    ///         not stop the attack it exists to defend against.
+    ///
+    ///         Writes a single O(1) flag with no iteration over the attester's existing
+    ///         records — 'kill' costs the same regardless of how many attestations the
+    ///         attester has outstanding, because revocation status is derived at read time
+    ///         from this flag rather than written per record.
+    ///
+    ///         Callable directly by 'msg.sender == attester' or 'msg.sender ==
+    ///         getKillSwitchKey(attester)' (signature ignored), or relayed with a
+    ///         'signature' verifying against either key. Reverts with 'AttesterAlreadyKilled'
+    ///         if already killed, or 'InvalidKillSignature' if the signature verifies
+    ///         against neither key.
+    ///
+    /// @param attester   The attester being killed.
+    /// @param signature  EIP-712 signature by the attester or its kill-switch key,
+    ///                   authorizing this call. Required when relayed.
+    function kill(address attester, bytes calldata signature) external;
+
+    /// @notice The timestamp at which 'attester' was killed via 'kill', or 0 if never killed.
+    /// @param attester  The queried attester address.
+    /// @return timestamp  The kill timestamp, or 0 if not killed.
+    function getAttesterKilledAt(address attester) external view returns (uint64 timestamp);
+
     /// @notice Update the MirrorList for existing descriptors without re-issuing attestations.
     /// @param attester The attester whose MirrorList pointers are being updated.
     /// @param descriptorHashes The hashes of the descriptors to update. Every hash MUST have
@@ -345,23 +450,61 @@ interface IClearSigningRegistry {
         bytes calldata signature
     ) external;
 
-    /// @notice Set the attester's profile document URI — a self-declared "business card" pointing at its JSON profile.
+    /// @notice Set or update an attester's profile document URI and lifecycle configuration.
+    ///         Also serves as attester registration: an attester's first call fixes its
+    ///         'revocationOracle' permanently and establishes its initial 'killSwitchKey'.
     ///
-    ///         The profile is display-only metadata and MUST NOT be used as trust input.
+    ///         The profile URI is display-only metadata and MUST NOT be used as trust input.
     ///         Wallets select and trust attesters by address ONLY.
     ///         Consumers SHOULD render profile data only for attesters they already trust.
     ///
-    /// @param attester    The attester whose profile is being set.
-    /// @param profileURI  The new profile document URI.
-    /// @param signature   EIP-712 signature by the attester authorizing this update.
-    function setAttesterProfileURI(
+    ///         'revocationOracle' is mandatory on every call — 'address(0)' is a legitimate,
+    ///         explicit value meaning "no external sync; native revocation only" — and is
+    ///         write-once: any call after the first MUST repeat the value already on record,
+    ///         or the call reverts with 'RevocationOracleImmutable'. See 'synchronizeRevocations'.
+    ///
+    ///         'killSwitchKey' is mandatory and MUST be non-zero and different from
+    ///         'attester' (reverting with 'ZeroKillSwitchKey' / 'KillSwitchKeyEqualsAttester'
+    ///         otherwise), but — unlike 'revocationOracle' — is rotatable: an attester may
+    ///         change it in a later call. Whenever the call changes 'killSwitchKey' from its
+    ///         currently stored value (including the first call, changing it from unset),
+    ///         'killSwitchSignature' MUST verify as a 'KillSwitchBinding' signature by the
+    ///         *new* key itself — proof that its holder controls it and consents to being
+    ///         nominated — or the call reverts with 'InvalidKillSwitchSignature'. A call that
+    ///         leaves 'killSwitchKey' unchanged ignores 'killSwitchSignature'. The key's only
+    ///         capability anywhere in this interface is authorizing 'kill' — it cannot set a
+    ///         profile, create or revoke attestations, or change the revocation oracle.
+    ///
+    /// @param attester            The attester whose profile/config is being set.
+    /// @param profileURI          The new profile document URI.
+    /// @param revocationOracle    The attester's revocation oracle — write-once, see above.
+    /// @param killSwitchKey       The attester's kill-switch key — rotatable, see above.
+    /// @param signature           EIP-712 signature by the attester authorizing this update.
+    ///                            Required when the call is relayed.
+    /// @param killSwitchSignature EIP-712 signature by 'killSwitchKey' binding it to
+    ///                            'attester' — required only when 'killSwitchKey' changes.
+    function setAttesterProfile(
         address         attester,
         string calldata profileURI,
-        bytes  calldata signature
+        address         revocationOracle,
+        address         killSwitchKey,
+        bytes  calldata signature,
+        bytes  calldata killSwitchSignature
     ) external;
 
     /// @notice The attester's current profile document URI, or an empty string if unset.
     /// @param attester  The queried attester address.
     /// @return profileURI  The profile document URI.
     function getAttesterProfileURI(address attester) external view returns (string memory profileURI);
+
+    /// @notice The attester's registered revocation oracle, or 'address(0)' if it has opted
+    ///         out of external sync (or never registered).
+    /// @param attester  The queried attester address.
+    /// @return revocationOracle  The oracle address, or 'address(0)'.
+    function getRevocationOracle(address attester) external view returns (address revocationOracle);
+
+    /// @notice The attester's current kill-switch key, or 'address(0)' if never registered.
+    /// @param attester  The queried attester address.
+    /// @return killSwitchKey  The kill-switch key address, or 'address(0)'.
+    function getKillSwitchKey(address attester) external view returns (address killSwitchKey);
 }
