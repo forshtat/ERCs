@@ -2,6 +2,7 @@
 pragma solidity ^0.8.24;
 
 import "./IClearSigningRegistry.sol";
+import "./IRevocationOracle.sol";
 import "./ClearSigningRegistryConstants.sol";
 import "./UriFilterLib.sol";
 import "./RegistrationHashLib.sol";
@@ -60,6 +61,29 @@ contract ClearSigningRegistry is IClearSigningRegistry, EIP712 {
     // Display-only metadata, never trust input; empty when unset.
     mapping(address attester => string) private _attesterProfileURIs;
 
+    // The attester's registered external revocation source for 'synchronizeRevocations',
+    // or 'address(0)' if opted out. Write-once — '_revocationOracleConfigured' tracks
+    // whether it has ever been set, since 'address(0)' is itself a legitimate stored value
+    // and cannot serve as its own "unset" sentinel.
+    mapping(address attester => address) private _revocationOracles;
+    mapping(address attester => bool)    private _revocationOracleConfigured;
+
+    // The attester's current kill-switch key — rotatable, unlike the revocation oracle.
+    // Its only capability anywhere in this contract is authorizing 'kill'.
+    mapping(address attester => address) private _killSwitchKeys;
+
+    // The timestamp at which an attester was permanently killed via 'kill', or 0 if never
+    // killed. Consulted (never iterated) wherever revocation status or registration
+    // eligibility is determined, so killing costs one write regardless of how many active
+    // records the attester holds.
+    mapping(address attester => uint64) private _attesterKilled;
+
+    /// Gas stipend for the 'staticcall' to an attester's revocation oracle in
+    /// 'synchronizeRevocations'. Bounds both the oracle's execution and how much return
+    /// data it can plausibly produce; the call site additionally copies at most 32 bytes of
+    /// that return data regardless of what the oracle claims to return.
+    uint256 private constant REVOCATION_ORACLE_GAS_STIPEND = 30_000;
+
     /// @inheritdoc IClearSigningRegistry
     function createAttestations(
         address           attester,
@@ -68,6 +92,9 @@ contract ClearSigningRegistry is IClearSigningRegistry, EIP712 {
         bytes32           attestationMirrorListId,
         bytes             calldata signature
     ) external {
+        if (_attesterKilled[attester] != 0) {
+            revert AttesterIsKilled();
+        }
         if (descriptors.length == 0) {
             revert EmptyDescriptors();
         }
@@ -215,22 +242,77 @@ contract ClearSigningRegistry is IClearSigningRegistry, EIP712 {
     }
 
     /// @inheritdoc IClearSigningRegistry
-    function setAttesterProfileURI(
+    function setAttesterProfile(
         address         attester,
         string calldata profileURI,
-        bytes  calldata signature
+        address         revocationOracle,
+        address         killSwitchKey,
+        bytes  calldata signature,
+        bytes  calldata killSwitchSignature
     ) external {
-        if (msg.sender != attester) {
-            uint256 nonce = _nonces[attester];
-            _nonces[attester] = nonce + 1;
-            _verifyProfileUpdateSignature(attester, profileURI, nonce, signature);
+        if (killSwitchKey == attester) {
+            revert KillSwitchKeyEqualsAttester();
+        }
+        if (killSwitchKey == address(0)) {
+            revert ZeroKillSwitchKey();
         }
 
-        if (keccak256(bytes(_attesterProfileURIs[attester])) == keccak256(bytes(profileURI))) {
+        bool oracleConfigured = _revocationOracleConfigured[attester];
+        if (oracleConfigured && _revocationOracles[attester] != revocationOracle) {
+            revert RevocationOracleImmutable();
+        }
+
+        // A changing key (including the very first registration, changing it from unset)
+        // always requires a fresh binding signature from the new key itself — regardless of
+        // who submits this call — proving its holder controls it and consents to being
+        // nominated. An unchanged key needs no re-proof.
+        bool killSwitchChanging = _killSwitchKeys[attester] != killSwitchKey;
+        _authorizeProfileUpdate(
+            attester, profileURI, revocationOracle, killSwitchKey, killSwitchChanging, signature, killSwitchSignature
+        );
+
+        if (!oracleConfigured) {
+            _revocationOracles[attester] = revocationOracle;
+            _revocationOracleConfigured[attester] = true;
+        }
+        _killSwitchKeys[attester] = killSwitchKey;
+
+        bool profileURIChanged =
+            keccak256(bytes(_attesterProfileURIs[attester])) != keccak256(bytes(profileURI));
+        if (profileURIChanged) {
+            _attesterProfileURIs[attester] = profileURI;
+        }
+
+        if (profileURIChanged || killSwitchChanging || !oracleConfigured) {
+            emit AttesterProfileUpdated(attester, profileURI, revocationOracle, killSwitchKey);
+        }
+    }
+
+    /// @dev Consumes a nonce (once, if either signature was verified) and verifies the
+    ///      relayed attester signature and/or the kill-switch binding signature for
+    ///      'setAttesterProfile', as applicable — split out from the caller to keep its own
+    ///      stack frame small.
+    function _authorizeProfileUpdate(
+        address         attester,
+        string calldata profileURI,
+        address         revocationOracle,
+        address         killSwitchKey,
+        bool            killSwitchChanging,
+        bytes  calldata signature,
+        bytes  calldata killSwitchSignature
+    ) private {
+        bool relayed = msg.sender != attester;
+        if (!relayed && !killSwitchChanging) {
             return;
         }
-        _attesterProfileURIs[attester] = profileURI;
-        emit AttesterProfileUpdated(attester, profileURI);
+        uint256 nonce = _nonces[attester];
+        if (relayed) {
+            _verifyProfileUpdateSignature(attester, profileURI, revocationOracle, killSwitchKey, nonce, signature);
+        }
+        if (killSwitchChanging) {
+            _verifyKillSwitchBinding(attester, killSwitchKey, nonce, killSwitchSignature);
+        }
+        _nonces[attester] = nonce + 1;
     }
 
     /// @inheritdoc IClearSigningRegistry
@@ -239,8 +321,106 @@ contract ClearSigningRegistry is IClearSigningRegistry, EIP712 {
     }
 
     /// @inheritdoc IClearSigningRegistry
+    function getRevocationOracle(address attester) external view returns (address) {
+        return _revocationOracles[attester];
+    }
+
+    /// @inheritdoc IClearSigningRegistry
+    function getKillSwitchKey(address attester) external view returns (address) {
+        return _killSwitchKeys[attester];
+    }
+
+    /// @inheritdoc IClearSigningRegistry
+    function getAttesterKilledAt(address attester) external view returns (uint64) {
+        return _attesterKilled[attester];
+    }
+
+    /// @inheritdoc IClearSigningRegistry
+    function kill(address attester, bytes calldata signature) external {
+        if (_attesterKilled[attester] != 0) {
+            revert AttesterAlreadyKilled();
+        }
+
+        address killSwitchKey = _killSwitchKeys[attester];
+        if (msg.sender != attester && msg.sender != killSwitchKey) {
+            uint256 nonce = _nonces[attester];
+            _nonces[attester] = nonce + 1;
+            bytes32 structHash = keccak256(
+                abi.encode(ClearSigningRegistryConstants.ATTESTER_KILL_TYPEHASH, attester, nonce)
+            );
+            bytes32 digest = _hashTypedDataV4(structHash);
+            bool validAttesterSignature = SignatureChecker.isValidSignatureNow(attester, digest, signature);
+            bool validKillSwitchSignature =
+                killSwitchKey != address(0) && SignatureChecker.isValidSignatureNow(killSwitchKey, digest, signature);
+            if (!validAttesterSignature && !validKillSwitchSignature) {
+                revert InvalidKillSignature();
+            }
+        }
+
+        // Single O(1) write — no iteration over the attester's existing records. Every
+        // read path (getRevocationTimestamp, resolveDescriptors) and createAttestations
+        // consults this flag directly instead, so killing costs the same regardless of how
+        // many attestations the attester has outstanding.
+        uint64 timestamp = uint64(block.timestamp);
+        _attesterKilled[attester] = timestamp;
+        emit AttesterKilled(attester, msg.sender, timestamp);
+    }
+
+    /// @inheritdoc IClearSigningRegistry
+    function synchronizeRevocations(address attester, bytes32[] calldata attestationSetIds) external {
+        address oracle = _revocationOracles[attester];
+        if (oracle == address(0)) {
+            return;
+        }
+
+        uint256 setCount = attestationSetIds.length;
+        for (uint256 setIndex = 0; setIndex < setCount; setIndex++) {
+            AttestationIdentifier[] storage members =
+                _attestationSetContents[attester][attestationSetIds[setIndex]];
+            uint256 memberCount = members.length;
+            for (uint256 memberIndex = 0; memberIndex < memberCount; memberIndex++) {
+                AttestationIdentifier storage member = members[memberIndex];
+                if (_queryRevocationOracle(oracle, attester, member.attestationId, member.attestationFormatId)) {
+                    _recordRevocation(attester, member.attestationId);
+                }
+            }
+        }
+    }
+
+    /// @dev Gas-capped, return-size-capped 'staticcall' to an external revocation oracle.
+    ///      Copies at most 32 bytes of return data regardless of what the callee returns, so
+    ///      a malicious oracle cannot grief this call with an oversized return buffer. Any
+    ///      revert, out-of-gas, or malformed (too-short) return is treated as 'false' — this
+    ///      function never reverts because of a misbehaving oracle. A 'staticcall' is
+    ///      inherently reentrancy-immune: no state mutation is possible anywhere in its
+    ///      subtree, so an attacker-controlled oracle can supply a wrong answer but cannot
+    ///      leverage reentrancy.
+    function _queryRevocationOracle(
+        address oracle,
+        address attester,
+        bytes32 attestationId,
+        bytes32 attestationFormatId
+    ) private view returns (bool revoked) {
+        bytes memory callData = abi.encodeWithSelector(
+            IRevocationOracle.isRevoked.selector, attester, attestationId, attestationFormatId
+        );
+        bool success;
+        bytes32 result;
+        uint256 gasStipend = REVOCATION_ORACLE_GAS_STIPEND;
+        assembly {
+            let scratch := mload(0x40)
+            success := staticcall(gasStipend, oracle, add(callData, 0x20), mload(callData), scratch, 0x20)
+            if and(success, iszero(lt(returndatasize(), 0x20))) {
+                result := mload(scratch)
+            }
+        }
+        return result != bytes32(0);
+    }
+
+    /// @inheritdoc IClearSigningRegistry
     function getRevocationTimestamp(address attester, bytes32 attestationId) external view returns (uint64) {
-        return _revokedAt[attester][attestationId];
+        uint64 individual = _revokedAt[attester][attestationId];
+        return individual != 0 ? individual : _attesterKilled[attester];
     }
 
     /// @dev Records 'attestationId' as revoked under 'attester', emitting 'AttestationRevoked'.
@@ -399,6 +579,10 @@ contract ClearSigningRegistry is IClearSigningRegistry, EIP712 {
             }
         }
 
+        // Read once per resolved descriptor (this function runs once per active record),
+        // not once per attestation — the fallback below is a single extra SLOAD either way.
+        uint64 killedAt = _attesterKilled[attester];
+
         attestations = new ResolvedAttestation[](matchCount);
         uint256 outIndex;
         for (uint256 entryIndex = 0; entryIndex < contents.length; entryIndex++) {
@@ -406,11 +590,12 @@ contract ClearSigningRegistry is IClearSigningRegistry, EIP712 {
             if (!_matchesFormatFilter(entry.attestationFormatId, attestationFormatIds)) {
                 continue;
             }
+            uint64 individualRevokedAt = _revokedAt[attester][entry.attestationId];
             attestations[outIndex++] = ResolvedAttestation({
                 attester:      attester,
                 attestationId: entry.attestationId,
                 attestationFormatId:      entry.attestationFormatId,
-                revokedAt:     _revokedAt[attester][entry.attestationId]
+                revokedAt:     individualRevokedAt != 0 ? individualRevokedAt : killedAt
             });
         }
     }
@@ -710,10 +895,12 @@ contract ClearSigningRegistry is IClearSigningRegistry, EIP712 {
         _verifySignature(attester, structHash, signature);
     }
 
-    /// @dev Verifies the attester's EIP-712 signature over a profile URI update.
+    /// @dev Verifies the attester's EIP-712 signature over a profile/config update.
     function _verifyProfileUpdateSignature(
         address         attester,
         string calldata profileURI,
+        address         revocationOracle,
+        address         killSwitchKey,
         uint256         nonce,
         bytes  calldata signature
     ) private view {
@@ -721,10 +908,32 @@ contract ClearSigningRegistry is IClearSigningRegistry, EIP712 {
             abi.encode(
                 ClearSigningRegistryConstants.ATTESTER_PROFILE_UPDATE_TYPEHASH,
                 keccak256(bytes(profileURI)),
+                revocationOracle,
+                killSwitchKey,
                 nonce
             )
         );
         _verifySignature(attester, structHash, signature);
+    }
+
+    /// @dev Verifies that 'killSwitchKey' itself signed a 'KillSwitchBinding' naming
+    ///      'attester' — proof of control and consent, independent of who submitted the
+    ///      'setAttesterProfile' call. Uses a dedicated error rather than '_verifySignature'
+    ///      (which always reverts as 'InvalidRegistrationSignature') so a binding failure is
+    ///      distinguishable from an attester-signature failure.
+    function _verifyKillSwitchBinding(
+        address attester,
+        address killSwitchKey,
+        uint256 nonce,
+        bytes calldata killSwitchSignature
+    ) private view {
+        bytes32 structHash = keccak256(
+            abi.encode(ClearSigningRegistryConstants.KILL_SWITCH_BINDING_TYPEHASH, attester, killSwitchKey, nonce)
+        );
+        bytes32 digest = _hashTypedDataV4(structHash);
+        if (!SignatureChecker.isValidSignatureNow(killSwitchKey, digest, killSwitchSignature)) {
+            revert InvalidKillSwitchSignature();
+        }
     }
 
     /// @dev Verifies the attester's EIP-712 mirror update signature.

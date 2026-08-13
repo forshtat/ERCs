@@ -56,6 +56,19 @@ library ClearSigningRegistryConstants {
     );
 
     bytes32 internal constant ATTESTER_PROFILE_UPDATE_TYPEHASH = keccak256(
-        "AttesterProfileUpdate(string profileURI,uint256 nonce)"
+        "AttesterProfileUpdate(string profileURI,address revocationOracle,address killSwitchKey,uint256 nonce)"
+    );
+
+    /// Signed by the nominated 'killSwitchKey' itself (not the attester) to prove
+    /// control of that key and consent to the binding — see 'setAttesterProfile'.
+    bytes32 internal constant KILL_SWITCH_BINDING_TYPEHASH = keccak256(
+        "KillSwitchBinding(address attester,address killSwitchKey,uint256 nonce)"
+    );
+
+    /// Signed by either the attester or their registered 'killSwitchKey' to authorize 'kill'.
+    /// 'attester' is bound explicitly since the same 'killSwitchKey' MAY back more than one
+    /// attester — without it, a kill signature for one attester could replay against another.
+    bytes32 internal constant ATTESTER_KILL_TYPEHASH = keccak256(
+        "AttesterKill(address attester,uint256 nonce)"
     );
 }
