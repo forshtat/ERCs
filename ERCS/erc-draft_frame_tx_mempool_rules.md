@@ -1,0 +1,393 @@
+---
+title: Frame Transaction Mempool Validation Rules
+description: Mempool admission rules for EIP-8141 frame transactions that extend the public mempool with stake and reputation.
+author: Alex Forshtat (@forshtat)
+discussions-to: https://ethereum-magicians.org/t/frame-transaction-mempool-validation-rules/PLACEHOLDER
+status: Draft
+type: Standards Track
+category: ERC
+created: 2026-09-21
+requires: 1153, 7702, 7819, 7843, 7951, 8037, 8141
+---
+
+## Abstract
+
+This document defines the mempool validation rules for [EIP-8141](./eip-8141.md) Frame Transactions: which transactions a node may admit, which it must reject, and how it tracks the entities that a transaction's validation depends on.
+
+EIP-8141 defines a *public mempool* that removes staking and reputation entirely and therefore admits only the narrowest class of validation logic. This document defines the **standard mempool**, an extension of the public mempool. It keeps the public mempool's rules and relaxes its restrictions where a contract has a locked stake and a good reputation, so that it admits validation logic that touches third-party state.
+
+The rules are written from first principles in terms of frames, validation prefixes and `APPROVE`. They are independent of [ERC-4337](./eip-4337.md) and [ERC-7562](./eip-7562.md).
+
+## Motivation
+
+A frame transaction replaces a hard-coded signature check with EVM code that runs during a *validation prefix*. Before a node relays such a transaction, it must simulate the prefix. If the prefix depends on mutable state that anyone can change, a single cheap state change can invalidate many pending transactions at once, and a node that spends resources on those transactions is never paid. This is the *mass invalidation attack*. Every rule in this document exists to bound it.
+
+[ERC-7562](./eip-7562.md) solves the same problem for `UserOperation`s. Frame transactions differ from `UserOperation`s in ways that make a shared rule set awkward:
+
+- There is no `EntryPoint` contract. There is no deposit ledger, no stake ledger, no `handleOps` call and no method signature that identifies which entity is running.
+- Entities are identified by the position and mode of a *frame*, not by call depth.
+- Approval is a native opcode (`APPROVE`), and `VERIFY` frames run in static mode.
+- A frame transaction is itself the on-chain transaction. There is no bundle assembled by a third party, and so no "second" or "third" validation pass over a bundle.
+- Many ERC-4337 mechanisms have no counterpart at all: aggregators, paymaster `context`, `initCode`, and the `EntryPoint` access exceptions.
+
+A shared document therefore has to mark half of its rules as belonging to one model or the other. This document instead defines the frame transaction rules once, standalone, and reuses only the ideas that carry over: banned opcodes, associated storage, stake, and reputation.
+
+EIP-8141 already specifies a public mempool policy. That policy is deliberately conservative: it bans reading any storage outside `tx.sender`, allows only a single pending transaction per non-canonical paymaster, and has no notion of stake or reputation. It cannot serve validation logic that legitimately reads shared state, for example a shielded pool's Merkle roots, a registry of authorised signers, or a paymaster that tracks a budget in its own storage. Those cases can be made safe by requiring the responsible contract to lock a stake and by throttling it when it misbehaves. This document specifies how.
+
+## Specification
+
+The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD", "SHOULD NOT", "RECOMMENDED", "NOT RECOMMENDED", "MAY", and "OPTIONAL" in this document are to be interpreted as described in RFC 2119 and RFC 8174.
+
+### Relationship to Other Mempools
+
+Three rule sets are relevant:
+
+1. The **public mempool**, defined by EIP-8141 §Mempool. It contains no stake and no reputation.
+2. The **standard mempool**, defined by this document.
+3. **Alternative mempools**, which are out of scope here (see [Alternative Mempools](#alternative-mempools)).
+
+The standard mempool extends the public mempool. Its structural rules, budgets and validation-trace rules are the public mempool's, relaxed only where a contract has a stake or a reputation that backs the relaxation. Each relaxation is called out where the rule appears. Consequently a transaction that the public mempool accepts is accepted here, with three exceptions: [OPC-020], which the public mempool does not have; refusals under the reputation rules, which the public mempool does not have either; and refusals under local rules, which depend on the node's own mempool contents.
+
+A transaction that violates a public mempool rule MUST NOT be propagated over the public mempool, as EIP-8141 already requires. It may be propagated over the standard mempool's own transport if it satisfies this document.
+
+### Rule Types
+
+There are two types of validation rule: **network-wide rules** and **local rules**.
+
+A violation of any rule by a frame transaction results in the transaction being dropped from the mempool and excluded from any block the node builds.
+
+A **network-wide rule** is a rule whose violation by a transaction damages the standing of the peer that sent that transaction into the standard mempool. A peer with critically low standing is treated as a **spammer** (see [Propagation](#propagation-net)).
+
+A **local rule** depends on a node's own mempool contents. Different nodes may hold different mempool contents, so no consensus is possible and no peer is penalised for a local rule violation. Local rules are marked *(Local)*. Every other rule is network-wide.
+
+### Constants
+
+| Name | Value | Description |
+|---|---|---|
+| `MAX_VERIFY_GAS` | `100_000` | Maximum gas a node expends validating signatures and simulating the validation prefix. Same value as EIP-8141. |
+| `MAX_VERIFY_STATE_GAS` | `500_000` | Maximum state gas ([EIP-8037](./eip-8037.md)) budgeted across the validation prefix. Same value as EIP-8141. |
+| `MIN_UNSTAKE_DELAY` | `86400` | One day. A withdrawal delay long enough to deter most Sybil attacks. |
+| `MIN_STAKE_VALUE` | per-chain | A non-trivial but not excessive amount, roughly the equivalent of USD 1000 in the native token. |
+| `SAME_SENDER_MEMPOOL_COUNT` | `1` | Maximum pending transactions from one sender. |
+| `SAME_UNSTAKED_ENTITY_MEMPOOL_COUNT` | `10` | Base number of pending transactions that may reference the same unstaked sponsoring payer. |
+| `THROTTLED_ENTITY_MEMPOOL_COUNT` | `4` | Pending transactions allowed for a throttled entity. |
+| `THROTTLED_ENTITY_LIVE_BLOCKS` | `10` | Blocks a transaction referencing a throttled entity may stay in the mempool. |
+| `THROTTLED_ENTITY_BLOCK_COUNT` | `4` | Transactions referencing a throttled entity that a node may include in one block it builds. |
+| `MIN_INCLUSION_RATE_DENOMINATOR` | `10` | Denominator in the reputation formula. |
+| `THROTTLING_SLACK` | `10` | Lets an entity legitimately fail some transactions without being throttled. |
+| `BAN_SLACK` | `50` | Lets a throttled entity fail some transactions without being banned. |
+| `BAN_TXS_SEEN_PENALTY` | `10000` | Value written into an entity's `seen` counter to ban it. |
+| `MAX_TXS_ALLOWED_UNSTAKED_ENTITY` | `10000` | Upper bound on `included` when computing the allowance of an unstaked sponsoring payer. |
+| `STAKING_REGISTRY_ADDRESS` | per-chain | Address of the Staking Registry contract (see [Appendix A](#appendix-a-staking-registry-contract)). |
+
+### Definitions
+
+1. **Validation prefix**: the shortest prefix of a transaction's frames whose successful execution sets `payer`, as defined by EIP-8141. Frames after the prefix are outside this document's scope. They are already paid for, and nothing here constrains them.
+2. **Validation frame**: a frame in the validation prefix.
+3. **Frame subclasses**: the EIP-8141 mode subclassifications `self_verify`, `only_verify`, `pay`, `expiry_verify` and `deploy`.
+4. **Entity**: an address that a validation frame executes as, attributed by role:
+    - The **sender** is `tx.sender`. It runs the `self_verify` or `only_verify` frame.
+    - The **payer** is the resolved target of the frame that calls `APPROVE` with a payment scope. It runs the `pay` frame or the `self_verify` frame.
+    - The **factory** is the resolved target of the `deploy` frame.
+
+   Every validation frame is attributed to exactly one entity. When a `self_verify` frame is used, the sender and the payer are the same address and the same entity. A **sponsoring payer** is a payer whose address differs from `tx.sender`. An `expiry_verify` frame is attributed to no entity: its code is protocol-defined.
+5. **Default-code entity**: an entity whose account has the empty code hash and therefore executes EIP-8141's default code. It has no bytecode to trace, is never staked, and is exempt from the opcode, call and storage rules. Its exposure is governed by [PAY-010](#payer-solvency-pay).
+6. **Staked entity**: an entity that has a stake of at least `MIN_STAKE_VALUE` and an unstake delay of at least `MIN_UNSTAKE_DELAY`, as reported by the Staking Registry, and whose stake is not being withdrawn (see [STK-010](#stake-stk)).
+7. **Associated storage**: a storage slot of any contract is *associated* with address `A` if:
+    1. the slot's own value is `A`; or
+    2. the slot was computed as `keccak(A || x) + n`, where `x` is a `bytes32` value and `n` is in the range 0 to 128.
+8. **Using an address**: accessing the code of an address in any way, by executing a `*CALL` or an `EXTCODE*` opcode on it.
+9. **Canonical paymaster**: a contract whose runtime code exactly matches the canonical paymaster implementation defined by EIP-8141 §Paymasters.
+10. **Admission validation**: the simulation a node performs before it first accepts a transaction.
+11. **Revalidation**: a re-simulation of a pending transaction against a newer head or a candidate block, as described in [Replacement, Eviction and Revalidation](#replacement-eviction-and-revalidation-rpl).
+12. **Spammer**: a peer that attempts to exhaust the mempool network by sending a large number of transactions that were never valid. See [NET-050](#propagation-net).
+
+### Execution Model
+
+`VERIFY` frames run in static mode (EIP-8141 §Frame Modes). Only `APPROVE` may change state or transaction context in them. Storage writes, transient storage writes, logs, contract creation and value-carrying calls therefore revert inside a `VERIFY` frame at the EVM level, regardless of any mempool rule. The single non-static frame in the validation prefix is the `deploy` frame, which runs in `DEFAULT` mode. Rules in this document that mention writes, contract creation or value calls consequently take effect only in the `deploy` frame.
+
+### Validation Prefix and Structure (PFX)
+
+* **[PFX-010]** The validation prefix MUST match one of the following shapes, optionally preceded by a single `expiry_verify` frame. A transaction whose prefix matches none of them MUST be rejected.
+    * `[self_verify]`
+    * `[deploy, self_verify]`
+    * `[only_verify, pay]`
+    * `[deploy, only_verify, pay]`
+* **[PFX-020]** If a `deploy` frame is present it MUST be the first frame of the prefix, not counting a leading `expiry_verify` frame. There is at most one `deploy` frame.
+* **[PFX-030]** A `self_verify` or `only_verify` frame MUST run in `VERIFY` mode, MUST target `tx.sender` (explicitly or with a null target), and MUST successfully call `APPROVE` with the scope its `flags` declare: `APPROVE_EXECUTION_AND_PAYMENT` for `self_verify`, `APPROVE_EXECUTION` for `only_verify`. A `pay` frame MUST run in `VERIFY` mode, MUST have `flags` equal to `APPROVE_PAYMENT`, and MUST successfully call `APPROVE(APPROVE_PAYMENT)`.
+* **[PFX-040]** No frame in the validation prefix may carry `ATOMIC_BATCH_FLAG`.
+* **[PFX-050]** No `VERIFY` frame may follow the validation prefix. If one did, a failure after the payer had already been committed would invalidate the whole transaction.
+* **[PFX-060]** A transaction MUST be rejected if, before `payer` is set, any validation frame reverts, or a `self_verify`, `only_verify` or `pay` frame exits without its required `APPROVE`.
+* **[PFX-070]** If a `deploy` frame is present, its execution MUST result in non-empty code at `tx.sender`, either contract code or an [EIP-7702](./eip-7702.md) delegation indicator. Otherwise the transaction MUST be rejected.
+* **[PFX-080]** An `expiry_verify` frame MAY appear only as the first frame of the transaction. A node MUST drop a transaction whose `expiry_verify` deadline is earlier than the node's view of the current block timestamp, at any time and not only at admission.
+* **[PFX-090]** A node SHOULD stop simulating once `payer` is set and the frame that set it has completed successfully.
+* **[PFX-100]** Three frame kinds have fully protocol-defined behaviour: a frame whose target is a default-code entity, an `expiry_verify` frame running the canonical runtime code at `EXPIRY_VERIFIER`, and a `pay` frame whose target is a canonical paymaster. These frames are admitted by identity and are exempt from the opcode, call and storage rules below. A node MAY evaluate them directly instead of simulating them. It MUST apply the same limits it would apply under simulation, including [BUD-010](#budgets-bud) and [PAY-010](#payer-solvency-pay).
+
+### Budgets (BUD)
+
+* **[BUD-010]** The sum of `limits.execution` across the validation prefix, plus the intrinsic cost of validating `tx.signatures`, MUST NOT exceed `MAX_VERIFY_GAS`.
+* **[BUD-020]** The sum of `limits.state` across the validation prefix MUST NOT exceed `MAX_VERIFY_STATE_GAS`.
+
+### Signatures (SIG)
+
+* **[SIG-010]** Before simulating any frame, a node MUST validate every protocol-validated signature (`SECP256K1`, `P256`) against the transaction's signature hash. It MUST also check every `ARBITRARY` signature for structural validity. A transaction with any malformed or invalid signature MUST be rejected.
+* **[SIG-020]** The bytes of an `ARBITRARY` signature are witness data. They are authenticated only by EVM code running in a frame, so the frame that inspects them is fully subject to the rules below.
+
+### Opcode Rules (OPC)
+
+Opcodes that read the execution environment, which is anything outside storage and code, are blocked during the validation prefix. Their results are not fixed at the time of admission, so a transaction could succeed off-chain and fail on-chain.
+
+* **[OPC-010]** The following opcodes are blocked:
+    * `GASPRICE` (`0x3A`)
+    * `BLOCKHASH` (`0x40`)
+    * `COINBASE` (`0x41`)
+    * `TIMESTAMP` (`0x42`), except as [OPC-030](#opcode-rules-opc) allows
+    * `NUMBER` (`0x43`)
+    * `PREVRANDAO` / `DIFFICULTY` (`0x44`)
+    * `GASLIMIT` (`0x45`)
+    * `BASEFEE` (`0x48`)
+    * `BLOBBASEFEE` (`0x4A`)
+    * `SLOTNUM` (`0x4B`, [EIP-7843](./eip-7843.md))
+    * `INVALID` (`0xFE`)
+    * `SELFDESTRUCT` (`0xFF`)
+    * `CREATE` (`0xF0`), `CREATE2` (`0xF5`) and `SETDELEGATE` (`0xF6`, [EIP-7819](./eip-7819.md)), except as [CAL-010](#calls-code-access-and-contract-creation-cal) and [CAL-020](#calls-code-access-and-contract-creation-cal) allow
+* **[OPC-011]** `GAS` (`0x5A`) is allowed only when it is immediately followed by a `*CALL` instruction. This is the standard way to forward all remaining gas to a child call. The value is consumed from the stack at once and cannot be inspected.
+* **[OPC-012]** Any unassigned opcode is blocked.
+* **[OPC-020]** A revert on "out of gas" is forbidden, because it can leak the gas limit or the call-stack depth.
+* **[OPC-030]** `TIMESTAMP` is allowed only while an `expiry_verify` frame executes the canonical runtime code at `EXPIRY_VERIFIER`.
+* **[OPC-040]** `BALANCE` (`0x31`) and `SELFBALANCE` (`0x47`) are allowed only for a staked entity. Otherwise they are blocked.
+* **[OPC-050]** `APPROVE`, `TXPARAM`, `FRAMEDATALOAD`, `FRAMEDATACOPY`, `FRAMEPARAM`, `SIGPARAM` and `SIGDATACOPY` are allowed. Their results depend only on the transaction and on the earlier validation frames, both of which are fixed at admission. `ORIGIN` is also allowed, since it returns a protocol constant in `DEFAULT` and `VERIFY` frames.
+
+### Calls, Code Access and Contract Creation (CAL)
+
+* **[CAL-010]** `CREATE`, `CREATE2` and `SETDELEGATE` are allowed only inside the `deploy` frame, and only to install code or an EIP-7702 delegation indicator at `tx.sender`. `CREATE2` may be executed at most once, and it MUST deploy the code for `tx.sender`. It may be executed by the factory itself or by a utility contract that the factory calls.
+* **[CAL-020]** If the factory is a staked entity, it MAY additionally use `CREATE`, and it MAY use a utility contract that executes `CREATE`, to deploy `tx.sender`.
+* **[CAL-030]** Using an address that has no deployed code is forbidden. Exceptions: `tx.sender` may be used in the `deploy` frame, where the factory creates it, and `tx.sender`'s default-code behaviour is allowed. `CALLER` returns `ENTRY_POINT` and is allowed, but `ENTRY_POINT` itself holds no code, so it may not be called.
+* **[CAL-040]** Using an address whose code is an EIP-7702 delegation indicator is forbidden, except for `tx.sender`'s default-code behaviour.
+* **[CAL-050]** A `CALL` with non-zero `value` is forbidden. This can only occur in the `deploy` frame (see [Execution Model](#execution-model)).
+* **[CAL-060]** Precompiles that access nothing in the blockchain state or environment are allowed. These include the core precompiles `0x01` to `0x11` and the `P256VERIFY` precompile defined by [EIP-7951](./eip-7951.md). A node MUST NOT accept any other precompile until it has verified that the precompile has this property.
+* **[CAL-070]** *Code stability.* The `EXTCODEHASH` of every address that a validation frame visited, every entity, and every library it referenced MUST NOT change between admission validation and revalidation. If it does, the transaction is invalid.
+
+### Storage and State Access (SAC)
+
+Storage access by `SLOAD`, `SSTORE`, `TLOAD` and `TSTORE` is restricted as follows. Writes and transient writes are possible only in the `deploy` frame (see [Execution Model](#execution-model)).
+
+* **[SAC-010]** Access to `tx.sender`'s own storage is always allowed.
+* **[SAC-020]** Access to storage associated with `tx.sender` in an external contract that is not an entity of the transaction is allowed if either:
+    * **[SAC-021]** the sender's account already exists, meaning the transaction has no `deploy` frame; or
+    * **[SAC-022]** the transaction has a `deploy` frame and the factory is a staked entity.
+* **[SAC-030]** If an entity, of any role, is a staked entity, it is additionally allowed:
+    * **[SAC-031]** access to its own storage;
+    * **[SAC-032]** read and write access to slots associated with the entity, in any contract that is not an entity of the transaction;
+    * **[SAC-033]** read-only access to any storage in a contract that is not an entity of the transaction.
+* **[SAC-040]** Transient storage ([EIP-1153](./eip-1153.md)) accessed with `TLOAD` and `TSTORE` is treated exactly like persistent storage accessed with `SLOAD` and `SSTORE`.
+* **[SAC-110]** *(Local)* A transaction MUST NOT use as its factory or its sponsoring payer an address that is `tx.sender` of another pending transaction in the mempool. A factory or paymaster contract can therefore not also serve as an account.
+* **[SAC-120]** *(Local)* A transaction MUST NOT use storage associated with its sender, or with a staked entity, in a contract that is `tx.sender` of another pending transaction in the mempool.
+
+The relaxation over the public mempool is [SAC-020] and [SAC-030]. The public mempool allows storage reads only from `tx.sender` and forbids every other storage access.
+
+### Stake (STK)
+
+* **[STK-010]** An entity is staked if the Staking Registry reports for it a stake of at least `MIN_STAKE_VALUE` and an unstake delay of at least `MIN_UNSTAKE_DELAY`, and `withdrawTime` is zero, meaning no withdrawal has been initiated.
+* **[STK-020]** A node reads stake information from the Staking Registry at `STAKING_REGISTRY_ADDRESS` against the state its validation runs against. If no registry is configured, every entity is unstaked.
+* **[STK-030]** A default-code entity is never staked.
+
+Stake is never slashed. It exists only for off-chain detection. The lock-up period raises the capital cost of creating new abusive entities.
+
+### Payer Solvency (PAY)
+
+* **[PAY-010]** For every payer, including the sender when it pays for itself, a node MUST track `reserved_pending_cost(payer)`, the sum of the maximum costs (`TXPARAM(0x06)`) of every pending transaction in its mempool that names this payer. A node MUST reject a transaction if `available_balance(payer)` is less than its maximum cost, where `available_balance(payer) = balance(payer) - reserved_pending_cost(payer)`.
+* **[PAY-020]** For a canonical paymaster, `available_balance` additionally subtracts `pending_withdrawal_amount(paymaster)`, the amount of any delayed withdrawal currently pending in that paymaster.
+* **[PAY-030]** On admission a node increases `reserved_pending_cost` by the transaction's maximum cost. It decreases it on eviction, replacement, inclusion and removal by reorg. When a replacement changes the payer, the node moves the reservation to the new payer atomically with the replacement.
+
+This is the public mempool's reservation rule, applied to every payer, not only to canonical paymasters.
+
+### Reputation (RPT)
+
+#### Definitions
+
+1. **`seen`**: a per-entity counter of how many times this node received a unique valid transaction that references the entity. It counts transactions received over RPC and over the mempool network.
+2. **`included`**: a per-entity counter of how many transactions that were previously counted in `seen` for that entity were included in a canonical block. A node determines this from the block's transactions and receipts.
+3. **Refresh rate**: every hour, both counters are updated as `value = value * 23 // 24`. The effect is a reduction to about 1% after four days.
+4. **`inclusionRate`**: the ratio of `included` to `seen`.
+
+#### Calculation
+
+Let `max_seen = seen // MIN_INCLUSION_RATE_DENOMINATOR`. The reputation of an entity is:
+
+1. **BANNED**: `max_seen > included + BAN_SLACK`
+2. **THROTTLED**: `max_seen > included + THROTTLING_SLACK`
+3. **OK**: otherwise
+
+A new entity starts as `OK`. Reputation is tracked per entity address, not per role. The refresh rate limits a malicious entity to about `BAN_SLACK * MIN_INCLUSION_RATE_DENOMINATOR / 24` invalid transactions per hour. This affects only the mempool network and never the chain.
+
+#### General rules
+
+The following rules apply to all staked entities and to unstaked sponsoring payers.
+
+* **[RPT-010]** A `BANNED` address is not allowed into the mempool. Every pending transaction that references it is removed.
+* **[RPT-020]** A `THROTTLED` address is limited to `THROTTLED_ENTITY_MEMPOOL_COUNT` entries in the mempool, to `THROTTLED_ENTITY_BLOCK_COUNT` transactions in a block the node builds, and to `THROTTLED_ENTITY_LIVE_BLOCKS` blocks of residency in the mempool.
+* **[RPT-030]** If a transaction passed the node's most recent revalidation but then fails when the node tries to include it in a block, every entity of that transaction that caused the failure has its `seen` set to `BAN_TXS_SEEN_PENALTY` and its `included` set to zero, so that it becomes `BANNED`.
+* **[RPT-040]** When a transaction is replaced by one with higher fees and the replacement removes an entity, such as a sponsoring payer, from the mempool, the removed entity's `seen` is decremented by 1.
+
+#### Staked entities
+
+* **[RPT-110]** An `OK` staked entity faces no limit under the reputation rules. There is no cap on its pending transactions, or on its transactions in a block a node builds. The per-sender limit in [RPL-010](#replacement-eviction-and-revalidation-rpl) still applies.
+
+#### Unstaked entities
+
+* **[RPT-210]** An unstaked sender that is neither `THROTTLED` nor `BANNED` may have at most `SAME_SENDER_MEMPOOL_COUNT` pending transactions in the mempool.
+* **[RPT-220]** An unstaked sponsoring payer that is neither `THROTTLED` nor `BANNED` may have at most `opsAllowed` pending transactions in the mempool, where `opsAllowed = SAME_UNSTAKED_ENTITY_MEMPOOL_COUNT + inclusionRate * min(included, MAX_TXS_ALLOWED_UNSTAKED_ENTITY)`. For a new entity this is `SAME_UNSTAKED_ENTITY_MEMPOOL_COUNT`.
+
+[RPT-220] replaces the public mempool's `MAX_PENDING_TXS_USING_NON_CANONICAL_PAYMASTER` cap of one pending transaction per non-canonical paymaster. It lets an unstaked payer with a good record carry more.
+
+#### Blame attribution
+
+* **[RPT-310]** If a transaction fails revalidation because of an earlier validation frame, that is, the factory or the sender, the sponsoring payer's `seen` is decremented by 1. A payer must not lose reputation because of another entity's failure.
+* **[RPT-320]** If a staked factory is used and the sender's validation frame fails, the failure is attributed to the factory, and the factory's reputation is updated accordingly.
+* **[RPT-330]** If a staked sender is used, its reputation is updated by failures of the other entities of the transaction, even if those entities are staked.
+
+### Replacement, Eviction and Revalidation (RPL)
+
+* **[RPL-010]** A pending transaction is identified by `(sender, nonce)`. Two transactions with the same identity are alternatives, at most one of which can ever be included. A node MUST keep at most `SAME_SENDER_MEMPOOL_COUNT` pending transactions per sender.
+* **[RPL-020]** A replacement MUST be valid under every rule in this document. A node SHOULD accept and propagate it only if it increases both `max_fee_per_gas` and `max_priority_fee_per_gas` by at least a configured minimum increment. 10% is the conventional default. A replacement MAY name a different payer.
+* **[RPL-030]** When a node's resource limits are reached, it SHOULD evict in this order: transactions that are already invalid against the current head, then transactions with the nearest expiry deadline, then transactions with the lowest effective priority fee. Evicted and replaced transactions MUST NOT be propagated again.
+* **[RPL-040]** When a new canonical block is accepted, a node MUST remove the transactions the block includes and update payer reservations. It MUST revalidate every pending transaction that depends on state the block changed. This includes at least:
+    * transactions for the same sender;
+    * transactions whose recorded storage dependencies changed;
+    * transactions whose payer's balance or code changed;
+    * transactions that reference a canonical paymaster whose balance, code or delayed-withdrawal state changed;
+    * transactions that reference an entity whose stake status changed.
+
+  A transaction that no longer satisfies the rules MUST be evicted.
+* **[RPL-050]** A node SHOULD record, for each admitted transaction, the set of state it depended on: the storage slots read, and the code, balance and nonce of every address whose value the validation used. It SHOULD use this set to select the transactions that [RPL-040] requires it to revalidate, without re-executing the others.
+* **[RPL-060]** When revalidation causes a transaction to fail because of an entity's behaviour, the reputation rules in [Reputation](#reputation-rpt) apply to that entity.
+
+### Propagation (NET)
+
+The wire protocol is out of scope for this document. The following rules apply to any transport that carries transactions between nodes of the standard mempool.
+
+* **[NET-010]** A transaction is broadcast with two items: the transaction itself, and the block hash against which it was last validated.
+* **[NET-020]** A node that receives a transaction from a peer MUST validate it locally before it propagates it.
+* **[NET-030]** If a received transaction fails a static check, such as an invalid encoding, a value below a minimum, or an outdated block hash, the node drops it and keeps the connection.
+* **[NET-040]** A node silently drops a transaction whose `(sender, nonce)` was recently included in a block. This is almost certainly a network race. It causes no reputation change.
+* **[NET-050]** If a received transaction fails against the current block, the node retries validation against the block named in the transaction's message. If it succeeds, the node silently drops the transaction and keeps the connection. If it fails, the node marks the sending peer a **spammer**, disconnects from it and blocks it permanently.
+
+### Alternative Mempools
+
+The standard mempool is not the only possible rule set. Node operators may agree on alternative mempools, rule sets that a node opts into in addition to the standard mempool, and this document deliberately does not define or restrict them. Each alternative mempool is identified by its own topic, conventionally the IPFS hash of a document that describes its rules. A transaction that violates a standard rule MUST NOT be propagated in the standard mempool, but MAY be propagated in any alternative mempool whose rules it satisfies. Reputation counters (`seen` and `included`) SHOULD be kept separately for each mempool, so that an entity that is throttled in one mempool is unaffected in another. An alternative mempool MAY define its own peer standing rules.
+
+### Acceptance Algorithm
+
+A node applies the rules in this order:
+
+1. Validate the signatures ([SIG-010]).
+2. Determine the validation prefix and check its structure ([PFX-010] to [PFX-080], [BUD-010], [BUD-020]).
+3. Resolve each entity's role, address and stake ([STK-010]) and check reputation ([RPT-010], [RPT-020], [RPT-210], [RPT-220]).
+4. Simulate the prefix and trace it, applying [OPC], [CAL] and [SAC] to every validation frame that is not protocol-defined. Stop at [PFX-090].
+5. Check payer solvency and reserve the cost ([PAY-010] to [PAY-030]).
+6. Check the per-sender limit ([RPL-010]), and, if the transaction is a replacement, the replacement rule ([RPL-020]).
+7. If every check passes, record the dependency set ([RPL-050]), admit the transaction and propagate it ([NET-010]).
+
+## Rationale
+
+### Why a standalone standard
+
+[ERC-7562](./eip-7562.md) was written for `UserOperation`s, and its rules are built on an `EntryPoint` contract: entities are found by the `EntryPoint`'s call depth and method signatures, stake and deposits live in the `EntryPoint`, and half of the reputation rules exist to compensate for bundle assembly and multi-pass validation. Frame transactions have none of that. Keeping both models in one document forces every rule to carry a marker that says which model it belongs to, and it hides the frame transaction rules that have no counterpart, such as the validation prefix shapes. Writing the frame transaction rules once, in the vocabulary of frames, produces a document that an implementer can read from beginning to end without knowing ERC-4337.
+
+The ideas that transfer are unchanged: environment-reading opcodes are blocked, storage is limited to storage associated with the transaction's own entities, contracts that need broader access must lock a stake, and a reputation that follows the ratio of included to seen transactions throttles those that misbehave.
+
+### Relationship to the public mempool
+
+EIP-8141's public mempool is deliberately narrow. It permits reading only `tx.sender`'s storage, and it caps non-canonical paymasters at one pending transaction each. That is the correct default for a network with no way to attribute blame. It cannot host validation that legitimately depends on shared state: a shielded pool's Merkle roots, a registry of authorised signers, or a paymaster with a budget in its own storage. Stake and reputation give a node what the public mempool lacks: an economic cost for creating an abusive entity, and a mechanism that throttles an entity once it causes invalidations.
+
+Because the standard mempool extends the public mempool rather than replacing it, the two stay consistent. A wallet author who targets the public mempool needs no knowledge of this document.
+
+### Rationale for limiting opcodes
+
+Validation runs off-chain, before a block exists. Opcodes that read the block or the transaction environment expose values that differ between simulation and inclusion. A transaction that passes `require(block.number == 12345)` off-chain fails once it is included in a later block, and an attacker can cheaply fill a mempool with transactions that pass validation and fail on-chain.
+
+`ORIGIN` and the introspection opcodes are allowed because their results are fixed by the transaction and by the earlier frames.
+
+### Rationale for limiting storage access
+
+Validation must not overlap. A single storage write must not be able to invalidate a large number of pending transactions. Restricting each transaction to `tx.sender`'s storage and to storage associated with its own entities means one state change can invalidate at most the transactions of one entity.
+
+Because `VERIFY` frames run in static mode, the rules for validation frames are read rules. Write rules matter only for the `deploy` frame.
+
+### Rationale for requiring a stake
+
+A globally used contract, such as a shared paymaster, a factory, or a shared account implementation, needs storage that is not associated with a single sender. An EOA's every invalidating action costs it a paid transaction. Such a contract has no comparable cost, so it needs another deterrent. If it causes many transactions to fail after admission, its reputation drops and it is throttled. A stake makes it expensive to re-create the contract under a new address and start again. The stake is never slashed, because it serves only detection. The lock-up period is what raises the capital cost.
+
+This document extends the storage privileges of a staked entity to every role, including the sender and the payer. In ERC-7562 they belonged only to paymasters and factories. A frame transaction's sender may be the only contract in the prefix, and the same deterrent applies to it.
+
+### Revalidation instead of a second validation
+
+ERC-7562 validates a `UserOperation` a second time immediately before it enters a bundle, and once more over the whole bundle. That protects the bundler's own self-paid transaction from going stale. A frame transaction is already signed and pays for itself, so there is no such transaction to protect. State still changes after admission, so a node revalidates on every new head and again before it includes a transaction in a block it builds. [RPT-030] and [RPL-040] carry the purposes of the second validation. Blame is assigned when revalidation finds that an entity's behaviour changed.
+
+### Definition of the mass invalidation attack
+
+A series of actions is a **mass invalidation attack** if a large number of transactions, having passed admission validation and propagated through the mempool network, later become invalid and ineligible for inclusion.
+
+There are three ways to carry it out:
+
+1. Submitting transactions that pass admission validation and fail revalidation.
+2. Submitting transactions that are valid alone but become invalid when several of them are included together.
+3. Front-running valid transactions with an economically viable state change that invalidates them.
+
+To prevent these, validation code runs in a sandbox. It is isolated from other transactions, from external storage changes, and from environment information such as the block timestamp.
+
+A transaction that fails admission validation and never enters the mempool is not an attack. Nodes are expected to apply ordinary measures against spam, such as throttling by API key, IP address, or peer score. An attack is also not considered economically viable if invalidating `N` transactions costs the attacker `N * X` for a sufficiently large `X`. The cheapest invalidating change is a storage write, at 5,000 gas. If a node can process 2,000 invalid transactions per block, such an attack costs 10,000,000 gas per block. The rules in this document add further costs on top.
+
+## Backwards Compatibility
+
+This document introduces no consensus change and requires no change to EIP-8141. It does not modify ERC-4337 or ERC-7562. It replaces the frame transaction sections of any draft of ERC-7562 that included them. A node may implement this document alongside ERC-7562, since the two apply to different transaction types.
+
+A node that implements only the public mempool of EIP-8141 remains compatible. Every transaction it propagates satisfies this document's structure, budget and trace rules, subject to the exceptions listed in [Relationship to Other Mempools](#relationship-to-other-mempools).
+
+## Security Considerations
+
+**Staking Registry.** The stake provisions depend on a registry contract outside the EIP-8141 protocol. Its correctness is not guaranteed by the protocol. A registry that reports stake incorrectly weakens [SAC-030], [OPC-040] and [CAL-020].
+
+**Staked entities can still misbehave.** A staked entity can cause a bounded amount of invalidation before its reputation drops. The bound is `BAN_SLACK * MIN_INCLUSION_RATE_DENOMINATOR / 24` invalid transactions per hour, plus whatever throttling then allows. It is a rate limit, not a guarantee.
+
+**Approval covers all following `SENDER` frames.** `sender_approved` is a single transaction-scoped flag (EIP-8141 §`APPROVE`). Once it is set, every `SENDER` frame in the transaction executes as `tx.sender`, not only the frame the approving code inspected. A node cannot check this. Wallet code that approves execution SHOULD bind its approval to the whole frame list, for example by verifying a signature over the canonical signature hash, which commits to every frame. A signature over an explicit digest that does not commit to the frame list authorises an open-ended set of `SENDER` frames.
+
+**`ARBITRARY` signatures.** The protocol does not validate them, so a transaction that carries one is only as trustworthy as the frame that inspects it ([SIG-020]).
+
+**Canonical paymaster.** A canonical paymaster is exempt from the trace rules and admitted by code match. A flaw in the canonical implementation affects every node that relies on the exemption.
+
+**Default-code payers.** A payer with no code is bounded only by [PAY-010]. A sponsor that moves its balance elsewhere between admission and inclusion invalidates every pending transaction it sponsors, up to the balance it appeared to hold. Reservation limits the exposure to the payer's balance at admission time and does not remove it.
+
+**Revalidation load.** A new head can force many revalidations. [RPL-050] lets a node select only the affected transactions. A node that ignores it is exposed to a load attack proportional to the size of its mempool.
+
+**Untested at scale.** Neither ERC-7562's rules nor the frame transaction rules here have seen adversarial production traffic at meaningful scale. Most historical ERC-4337 traffic bypassed the public peer network through private relays.
+
+## Appendix A: Staking Registry Contract
+
+Frame transactions have no `EntryPoint` contract to hold a stake ledger, and `ENTRY_POINT` holds no state. Stake is therefore kept in a separate contract at `STAKING_REGISTRY_ADDRESS`. It implements this interface:
+
+```solidity
+interface IStakingRegistry {
+    /// Lock `msg.value` as the caller's stake, with the given unstake delay.
+    function addStake(uint32 unstakeDelaySec) external payable;
+
+    /// Begin the withdrawal delay. From this point the caller is not staked.
+    function unlockStake() external;
+
+    /// Withdraw the stake after the delay has passed.
+    function withdrawStake(address payable withdrawAddress) external;
+
+    /// Return the stake information a node needs to apply STK-010.
+    function getDepositInfo(address account)
+        external
+        view
+        returns (uint256 stake, uint32 unstakeDelaySec, uint64 withdrawTime);
+}
+```
+
+`withdrawTime` is zero while no withdrawal has been initiated. A node applies [STK-010] to the values `getDepositInfo` returns.
+
+## Copyright
+
+Copyright and related rights waived via [CC0](../LICENSE.md).
