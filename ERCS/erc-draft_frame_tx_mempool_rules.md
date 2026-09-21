@@ -1,8 +1,8 @@
 ---
-title: Frame Transaction Mempool Validation Rules
-description: Mempool admission rules for EIP-8141 frame transactions that extend the public mempool with stake and reputation.
-author: Alex Forshtat (@forshtat)
-discussions-to: https://ethereum-magicians.org/t/frame-transaction-mempool-validation-rules/PLACEHOLDER
+title: Frame Transaction Alternative Mempools
+description: Alternative mempools framework for EIP-8141 Frame Transactions that extend the public mempool with stake and reputation.
+author:
+discussions-to: https://ethereum-magicians.org/t/PLACEHOLDER
 status: Draft
 type: Standards Track
 category: ERC
@@ -26,7 +26,7 @@ A frame transaction replaces a hard-coded signature check with EVM code that run
 
 - There is no `EntryPoint` contract. There is no deposit ledger, no stake ledger, no `handleOps` call and no method signature that identifies which entity is running.
 - Entities are identified by the position and mode of a *frame*, not by call depth.
-- Approval is a native opcode (`APPROVE`), and `VERIFY` frames run in static mode.
+- Approval is a native opcode (`APPROVE`), and `VERIFY` frames run in static mode. A `UserOperation`'s validation may write storage. A `VERIFY` frame cannot, so this document defines the `pre_verify` frame to carry such writes.
 - A frame transaction is itself the on-chain transaction. There is no bundle assembled by a third party, and so no "second" or "third" validation pass over a bundle.
 - Many ERC-4337 mechanisms have no counterpart at all: aggregators, paymaster `context`, `initCode`, and the `EntryPoint` access exceptions.
 
@@ -35,8 +35,6 @@ A shared document therefore has to mark half of its rules as belonging to one mo
 EIP-8141 already specifies a public mempool policy. That policy is deliberately conservative: it bans reading any storage outside `tx.sender`, allows only a single pending transaction per non-canonical paymaster, and has no notion of stake or reputation. It cannot serve validation logic that legitimately reads shared state, for example a shielded pool's Merkle roots, a registry of authorised signers, or a paymaster that tracks a budget in its own storage. Those cases can be made safe by requiring the responsible contract to lock a stake and by throttling it when it misbehaves. This document specifies how.
 
 ## Specification
-
-The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD", "SHOULD NOT", "RECOMMENDED", "NOT RECOMMENDED", "MAY", and "OPTIONAL" in this document are to be interpreted as described in RFC 2119 and RFC 8174.
 
 ### Relationship to Other Mempools
 
@@ -84,13 +82,13 @@ A **local rule** depends on a node's own mempool contents. Different nodes may h
 
 1. **Validation prefix**: the shortest prefix of a transaction's frames whose successful execution sets `payer`, as defined by EIP-8141. Frames after the prefix are outside this document's scope. They are already paid for, and nothing here constrains them.
 2. **Validation frame**: a frame in the validation prefix.
-3. **Frame subclasses**: the EIP-8141 mode subclassifications `self_verify`, `only_verify`, `pay`, `expiry_verify` and `deploy`.
+3. **Frame subclasses**: the EIP-8141 mode subclassifications `self_verify`, `only_verify`, `pay`, `expiry_verify` and `deploy`, and the `pre_verify` subclass that this document defines in [PREFIX-110](#validation-prefix-and-structure-prefix).
 4. **Entity**: an address that a validation frame executes as, attributed by role:
     - The **sender** is `tx.sender`. It runs the `self_verify` or `only_verify` frame.
     - The **payer** is the resolved target of the frame that calls `APPROVE` with a payment scope. It runs the `pay` frame or the `self_verify` frame.
     - The **factory** is the resolved target of the `deploy` frame.
 
-   Every validation frame is attributed to exactly one entity. When a `self_verify` frame is used, the sender and the payer are the same address and the same entity. A **sponsoring payer** is a payer whose address differs from `tx.sender`. An `expiry_verify` frame is attributed to no entity: its code is protocol-defined.
+   Every validation frame is attributed to exactly one entity. A `pre_verify` frame is attributed to the entity of the approving frame that follows it. When a `self_verify` frame is used, the sender and the payer are the same address and the same entity. A **sponsoring payer** is a payer whose address differs from `tx.sender`. An `expiry_verify` frame is attributed to no entity: its code is protocol-defined.
 5. **Default-code entity**: an entity whose account has the empty code hash and therefore executes EIP-8141's default code. It has no bytecode to trace, is never staked, and is exempt from the opcode, call and storage rules. Its exposure is governed by [SOLVENCY-010](#payer-solvency-solvency).
 6. **Staked entity**: an entity that has a stake of at least `MIN_STAKE_VALUE` and an unstake delay of at least `MIN_UNSTAKE_DELAY`, as reported by the Staking Registry, and whose stake is not being withdrawn (see [STAKING-010](#stake-staking)).
 7. **Associated storage**: a storage slot of any contract is *associated* with address `A` if:
@@ -104,7 +102,7 @@ A **local rule** depends on a node's own mempool contents. Different nodes may h
 
 ### Execution Model
 
-`VERIFY` frames run in static mode (EIP-8141 §Frame Modes). Only `APPROVE` may change state or transaction context in them. Storage writes, transient storage writes, logs, contract creation and value-carrying calls therefore revert inside a `VERIFY` frame at the EVM level, regardless of any mempool rule. The single non-static frame in the validation prefix is the `deploy` frame, which runs in `DEFAULT` mode. Rules in this document that mention writes, contract creation or value calls consequently take effect only in the `deploy` frame.
+`VERIFY` frames run in static mode (EIP-8141 §Frame Modes). Only `APPROVE` may change state or transaction context in them. Storage writes, transient storage writes, logs, contract creation and value-carrying calls therefore revert inside a `VERIFY` frame at the EVM level, regardless of any mempool rule. The non-static frames in the validation prefix are the `deploy` frame and any `pre_verify` frame, which run in `DEFAULT` mode. Rules in this document that mention writes, contract creation or value calls consequently take effect only in those frames. A failed `DEFAULT`-mode frame does not invalidate a transaction. Only the failure of a `VERIFY` frame does.
 
 ### Validation Prefix and Structure (PREFIX)
 
@@ -113,6 +111,8 @@ A **local rule** depends on a node's own mempool contents. Different nodes may h
     * `[deploy, self_verify]`
     * `[only_verify, pay]`
     * `[deploy, only_verify, pay]`
+
+  In every shape, each approving frame (`self_verify`, `only_verify` or `pay`) MAY be immediately preceded by one `pre_verify` frame, as [PREFIX-110] describes.
 * **[PREFIX-020]** If a `deploy` frame is present it MUST be the first frame of the prefix, not counting a leading `expiry_verify` frame. There is at most one `deploy` frame.
 * **[PREFIX-030]** A `self_verify` or `only_verify` frame MUST run in `VERIFY` mode, MUST target `tx.sender` (explicitly or with a null target), and MUST successfully call `APPROVE` with the scope its `flags` declare: `APPROVE_EXECUTION_AND_PAYMENT` for `self_verify`, `APPROVE_EXECUTION` for `only_verify`. A `pay` frame MUST run in `VERIFY` mode, MUST have `flags` equal to `APPROVE_PAYMENT`, and MUST successfully call `APPROVE(APPROVE_PAYMENT)`.
 * **[PREFIX-040]** No frame in the validation prefix may carry `ATOMIC_BATCH_FLAG`.
@@ -122,6 +122,8 @@ A **local rule** depends on a node's own mempool contents. Different nodes may h
 * **[PREFIX-080]** An `expiry_verify` frame MAY appear only as the first frame of the transaction. A node MUST drop a transaction whose `expiry_verify` deadline is earlier than the node's view of the current block timestamp, at any time and not only at admission.
 * **[PREFIX-090]** A node SHOULD stop simulating once `payer` is set and the frame that set it has completed successfully.
 * **[PREFIX-100]** Three frame kinds have fully protocol-defined behaviour: a frame whose target is a default-code entity, an `expiry_verify` frame running the canonical runtime code at `EXPIRY_VERIFIER`, and a `pay` frame whose target is a canonical paymaster. These frames are admitted by identity and are exempt from the opcode, call and storage rules below. A node MAY evaluate them directly instead of simulating them. It MUST apply the same limits it would apply under simulation, including [BUDGET-010](#budgets-budget) and [SOLVENCY-010](#payer-solvency-solvency).
+* **[PREFIX-110]** A `pre_verify` frame is a `DEFAULT`-mode frame whose resolved target is the same as the resolved target of the approving frame (`self_verify`, `only_verify` or `pay`) that immediately follows it. Each approving frame MAY be preceded by at most one `pre_verify` frame. The target of a `pre_verify` frame MUST have deployed code. A `DEFAULT`-mode frame in the validation prefix that is neither the `deploy` frame nor a `pre_verify` frame MUST cause the transaction to be rejected. The first `DEFAULT`-mode frame is a `pre_verify` frame, not the `deploy` frame, if its resolved target equals that of the frame that follows it.
+* **[PREFIX-120]** The code of an approving frame that is preceded by a `pre_verify` frame MUST check the status of that `pre_verify` frame before it calls `APPROVE`, using the frame status parameter of `FRAMEPARAM`, and MUST NOT call `APPROVE` if that status is not success. A failed `DEFAULT`-mode frame does not invalidate the transaction, so without this check the approving frame would approve after the writes it depends on had been reverted. A node cannot verify this requirement in general. A node MUST reject at admission a transaction whose `pre_verify` frame does not succeed in simulation ([PREFIX-060]).
 
 ### Budgets (BUDGET)
 
@@ -167,12 +169,12 @@ Opcodes that read the execution environment, which is anything outside storage a
 
 * **[CALLING-010]** Using an address that has no deployed code is forbidden. Exceptions: `tx.sender` may be used in the `deploy` frame, where the factory creates it, and `tx.sender`'s default-code behaviour is allowed. `CALLER` returns `ENTRY_POINT` and is allowed, but `ENTRY_POINT` itself holds no code, so it may not be called.
 * **[CALLING-020]** Using an address whose code is an EIP-7702 delegation indicator is forbidden, except for `tx.sender`'s default-code behaviour.
-* **[CALLING-030]** A `CALL` with non-zero `value` is forbidden. This can only occur in the `deploy` frame (see [Execution Model](#execution-model)).
+* **[CALLING-030]** A `CALL` with non-zero `value` is forbidden. This can only occur in the `deploy` frame or in a `pre_verify` frame (see [Execution Model](#execution-model)).
 * **[CALLING-040]** Precompiles that access nothing in the blockchain state or environment are allowed. These include the core precompiles `0x01` to `0x11` and the `P256VERIFY` precompile defined by [EIP-7951](./eip-7951.md). A node MUST NOT accept any other precompile until it has verified that the precompile has this property.
 
 ### Storage and State Access (STORAGE)
 
-Storage access by `SLOAD`, `SSTORE`, `TLOAD` and `TSTORE` is restricted as follows. Writes and transient writes are possible only in the `deploy` frame (see [Execution Model](#execution-model)).
+Storage access by `SLOAD`, `SSTORE`, `TLOAD` and `TSTORE` is restricted as follows. Writes and transient writes are possible only in the `deploy` frame and in `pre_verify` frames (see [Execution Model](#execution-model)).
 
 * **[STORAGE-010]** Access to `tx.sender`'s own storage is always allowed.
 * **[STORAGE-020]** Access to storage associated with `tx.sender` in an external contract that is not an entity of the transaction is allowed if either:
@@ -285,7 +287,7 @@ The standard mempool is not the only possible rule set. Node operators may agree
 A node applies the rules in this order:
 
 1. Validate the signatures ([SIGNATURE-010]).
-2. Determine the validation prefix and check its structure ([PREFIX-010] to [PREFIX-080], [BUDGET-010], [BUDGET-020]).
+2. Determine the validation prefix and check its structure ([PREFIX-010] to [PREFIX-080], [PREFIX-110], [PREFIX-120], [BUDGET-010], [BUDGET-020]).
 3. Resolve each entity's role, address and stake ([STAKING-010]) and check reputation ([REPUTATION-010], [REPUTATION-020], [REPUTATION-210], [REPUTATION-220]).
 4. Simulate the prefix and trace it, applying [OPCODES], [CREATION], [CALLING] and [STORAGE] to every validation frame that is not protocol-defined. Stop at [PREFIX-090].
 5. Check payer solvency and reserve the cost ([SOLVENCY-010] to [SOLVENCY-030]).
@@ -317,6 +319,12 @@ Validation runs off-chain, before a block exists. Opcodes that read the block or
 Validation must not overlap. A single storage write must not be able to invalidate a large number of pending transactions. Restricting each transaction to `tx.sender`'s storage and to storage associated with its own entities means one state change can invalidate at most the transactions of one entity.
 
 Because `VERIFY` frames run in static mode, the rules for validation frames are read rules. Write rules matter only for the `deploy` frame.
+
+### Rationale for `pre_verify` frames
+
+ERC-4337 validation functions may write storage, under the same associated-storage and stake rules that govern reads. A common use is a paymaster that pulls ERC-20 tokens from the sender during validation, so that it is reimbursed before it commits to pay. `VERIFY` frames are static, so the same guarantee needs a non-static frame that runs before the `pay` frame. `DEFAULT`-mode frames already provide that. The alternatives are weaker. A `SENDER` frame after `pay` runs only once the payer has committed, and a post-operation frame leaves the payer with the loss if the transfer fails.
+
+The `pre_verify` subclass marks such a frame, binds it to one approving frame so that each write is attributed to an entity, and allows only one per approving frame. Attribution is what lets the storage and reputation rules apply to writes exactly as they apply to reads. One frame is enough, because its target can call any number of contracts.
 
 ### Rationale for requiring a stake
 
@@ -353,6 +361,10 @@ A node that implements only the public mempool of EIP-8141 remains compatible. E
 **Staking Registry.** The stake provisions depend on a registry contract outside the EIP-8141 protocol. Its correctness is not guaranteed by the protocol. A registry that reports stake incorrectly weakens [STORAGE-030], [OPCODES-040] and [CREATION-020].
 
 **Staked entities can still misbehave.** A staked entity can cause a bounded amount of invalidation before its reputation drops. The bound is `BAN_SLACK * MIN_INCLUSION_RATE_DENOMINATOR / 24` invalid transactions per hour, plus whatever throttling then allows. It is a rate limit, not a guarantee.
+
+**`pre_verify` frames run before approval.** A `pre_verify` frame is called by `ENTRY_POINT`, before any `APPROVE` has happened, so nobody has been authorised yet. A contract that treats "the caller is `ENTRY_POINT`" as authority can be made to write by a transaction whose sender is someone else. The target of a `pre_verify` frame SHOULD check that the transaction's sender, as reported by `TXPARAM`, is the party whose state it is about to change.
+
+**A failed `DEFAULT` frame does not invalidate the transaction.** Only `VERIFY` failures do, so a `pre_verify` frame that reverts on-chain lets the transaction continue. [PREFIX-120] requires the approving frame to check for this. A node cannot check the requirement, so a payer that ignores it bears the loss.
 
 **Approval covers all following `SENDER` frames.** `sender_approved` is a single transaction-scoped flag (EIP-8141 §`APPROVE`). Once it is set, every `SENDER` frame in the transaction executes as `tx.sender`, not only the frame the approving code inspected. A node cannot check this. Wallet code that approves execution SHOULD bind its approval to the whole frame list, for example by verifying a signature over the canonical signature hash, which commits to every frame. A signature over an explicit digest that does not commit to the frame list authorises an open-ended set of `SENDER` frames.
 
