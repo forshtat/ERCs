@@ -69,7 +69,7 @@ A **local rule** depends on a node's own mempool contents and opinions on entiti
 | `BAN_SLACK` | `50` | Lets a throttled entity fail some transactions without being banned. |
 | `BAN_TXS_SEEN_PENALTY` | `10000` | Value written into an entity's `seen` counter to ban it. |
 | `MAX_TXS_ALLOWED_UNSTAKED_ENTITY` | `10000` | Upper bound on `included` when computing the allowance of an unstaked sponsoring payer. |
-| `STAKING_REGISTRY_ADDRESS` | per-chain | Address of the Staking Registry contract (see [Appendix A](#appendix-a-staking-registry-contract)). |
+| `STAKING_REGISTRY_ADDRESS` | per-chain | Address of the Staking Registry contract (see [Staking Registry Contract](#staking-registry-contract)). |
 
 ### Definitions
 
@@ -85,12 +85,24 @@ A **local rule** depends on a node's own mempool contents and opinions on entiti
    Every validation frame is attributed to exactly one entity. An `expiry_verify` frame is attributed to no entity as its code is protocol-defined.
 5. **Default-code entity**: an entity whose account has the empty code hash and therefore executes EIP-8141's default code. It has no bytecode to trace, is never staked, and is exempt from the opcode, call and storage rules.
 6. **Staked entity**: an entity that has a stake of at least `MIN_STAKE_VALUE` and an unstake delay of at least `MIN_UNSTAKE_DELAY`, as reported by the **Staking Registry** smart contract, and whose stake is not being withdrawn.
-7. **Associated storage**: a storage slot of any contract is *associated* with address `A` according to the [Associated Storage Rules](TODO?)
+7. **Associated storage**: a storage slot of any contract is *associated* with address `A` according to the [Associated Storage Rules](#associated-storage-rules).
 9. **Canonical paymaster**: a contract whose runtime code exactly matches the canonical paymaster implementation defined by EIP-8141.
 10. **Admission validation**: the simulation a node performs before it first accepts a transaction.
 11. **Revalidation**: a re-simulation of a pending transaction against a newer head or a candidate block, as described in [Replacement, Eviction and Revalidation](#replacement-eviction-and-revalidation-lifecycle).
 12. **Spammer**: a peer that attempts to exhaust the mempool network by sending a large number of transactions that were never valid. See [PROPAGATION-050](#propagation-propagation).
-13. **Mass mempool invalidation** TODO
+13. **Mass invalidation attack**: a series of actions by which a large number of transactions, having passed admission validation and propagated through the mempool network, later become invalid and ineligible for inclusion. There are three ways to carry it out:
+    * submitting transactions that pass admission validation and fail revalidation;
+    * submitting transactions that are valid alone but become invalid when several of them are included together;
+    * front-running valid transactions with an economically viable state change that invalidates them.
+
+### Associated Storage Rules
+
+A storage slot of any contract is associated with address `A` if:
+
+1. the slot's own value is `A`; or
+2. the slot was computed as `keccak256(A || x) + n`, where `x` is a `bytes32` value and `n` is in the range 0 to 128.
+
+This is the same rule ERC-7562 uses to determine associated storage for `UserOperation`s.
 
 ### Execution Model
 
@@ -98,14 +110,13 @@ A **local rule** depends on a node's own mempool contents and opinions on entiti
 
 ### Validation Prefix and Structure (PREFIX)
 
-* **[PREFIX-010]** The validation prefix MUST match one of the following shapes, optionally preceded by a single `expiry_verify` frame. A transaction whose prefix matches none of them MUST be rejected.
-    * `[self_verify]`
-    * `[deploy, self_verify]`
-    * `[only_verify, pay]`
-    * `[deploy, only_verify, pay]`
+* **[PREFIX-010]** The validation prefix MUST match one of the following shapes, where a leading `expiry_verify?` denotes an optional single `expiry_verify` frame. A transaction whose prefix matches none of them MUST be rejected.
+    * `[expiry_verify?, self_verify]`
+    * `[expiry_verify?, deploy, self_verify]`
+    * `[expiry_verify?, only_verify, pay]`
+    * `[expiry_verify?, deploy, only_verify, pay]`
 
   In every shape, each approving frame (`self_verify`, `only_verify` or `pay`) MAY be immediately preceded by one `pre_verify` frame, as [PREFIX-110] describes.
-  TODO expiry frame not mentioned
 * **[PREFIX-020]** If a `deploy` frame is present it MUST be the first frame of the prefix, not counting a leading `expiry_verify` frame. There is at most one `deploy` frame.
 * **[PREFIX-030]** A `self_verify` or `only_verify` frame MUST run in `VERIFY` mode, MUST target `tx.sender` (explicitly or with a null target), and MUST successfully call `APPROVE` with the scope its `flags` declare: `APPROVE_EXECUTION_AND_PAYMENT` for `self_verify`, `APPROVE_EXECUTION` for `only_verify`. A `pay` frame MUST run in `VERIFY` mode, MUST have `flags` equal to `APPROVE_PAYMENT`, and MUST successfully call `APPROVE(APPROVE_PAYMENT)`.
 * **[PREFIX-040]** No frame in the validation prefix may carry `ATOMIC_BATCH_FLAG`.
@@ -190,6 +201,31 @@ The relaxation over the public mempool is [STORAGE-020] and [STORAGE-030]. The p
 * **[STAKING-030]** A default-code entity is never staked.
 
 Stake is never slashed. It exists only for off-chain detection. The lock-up period raises the capital cost of creating new abusive entities.
+
+### Staking Registry Contract
+
+Frame transactions have no `EntryPoint` contract to hold a stake ledger, and `ENTRY_POINT` holds no state. Stake is therefore kept in a separate contract at `STAKING_REGISTRY_ADDRESS`. It implements this interface:
+
+```solidity
+interface IStakingRegistry {
+    /// Lock `msg.value` as the caller's stake, with the given unstake delay.
+    function addStake(uint32 unstakeDelaySec) external payable;
+
+    /// Begin the withdrawal delay. From this point the caller is not staked.
+    function unlockStake() external;
+
+    /// Withdraw the stake after the delay has passed.
+    function withdrawStake(address payable withdrawAddress) external;
+
+    /// Return the stake information a node needs to apply STAKING-010.
+    function getDepositInfo(address account)
+        external
+        view
+        returns (uint256 stake, uint32 unstakeDelaySec, uint64 withdrawTime);
+}
+```
+
+`withdrawTime` is zero while no withdrawal has been initiated. A node applies [STAKING-010] to the values `getDepositInfo` returns.
 
 ### Payer Solvency (SOLVENCY)
 
@@ -305,23 +341,21 @@ The `pre_verify` subclass marks such a frame, binds it to one approving frame so
 
 ERC-7562 validates a `UserOperation` a second time immediately before it enters a bundle, and once more over the whole bundle. That protects the bundler's own self-paid transaction from going stale. A frame transaction is already signed and pays for itself, so there is no such transaction to protect. State still changes after admission, so a node revalidates on every new head and again before it includes a transaction in a block it builds. [REPUTATION-030] and [LIFECYCLE-040] carry the purposes of the second validation. Blame is assigned when revalidation finds that an entity's behaviour changed.
 
-### Definition of the mass invalidation attack TODO move to definitions section in the beginning
+### Mitigating the mass invalidation attack
 
-A series of actions is a **mass invalidation attack** if a large number of transactions, having passed admission validation and propagated through the mempool network, later become invalid and ineligible for inclusion.
-
-There are three ways to carry it out:
-
-1. Submitting transactions that pass admission validation and fail revalidation.
-2. Submitting transactions that are valid alone but become invalid when several of them are included together.
-3. Front-running valid transactions with an economically viable state change that invalidates them.
-
-To prevent these, validation code runs in a sandbox. It is isolated from other transactions, from external storage changes, and from environment information such as the block timestamp.
+The [mass invalidation attack](#definitions) can be carried out in any of the three ways listed in its definition. To prevent them, validation code runs in a sandbox. It is isolated from other transactions, from external storage changes, and from environment information such as the block timestamp.
 
 A transaction that fails admission validation and never enters the mempool is not an attack. Nodes are expected to apply ordinary measures against spam, such as throttling by API key, IP address, or peer score. An attack is also not considered economically viable if invalidating `N` transactions costs the attacker `N * X` for a sufficiently large `X`. The cheapest invalidating change is a storage write, at 5,000 gas. If a node can process 2,000 invalid transactions per block, such an attack costs 10,000,000 gas per block. The rules in this document add further costs on top.
 
 ## Backwards Compatibility
 
-TODO elaborate how we maintain a backward compatibility of use-cases (token paymasters, privacy pools, staked paymasters with associated storage etc.) for projects that grew to rely on code shaped by 4337+7562.
+The rules in this document preserve the ERC-4337 use cases that ERC-7562 made possible, even though neither the `EntryPoint` contract nor a `UserOperation` bundle exists here. Each of those use cases depended on a specific relaxation of the base validation rules, and this document keeps the equivalent relaxation:
+
+* **Token paymasters** that pull an ERC-20 payment from the sender during validation relied on a non-static call inside `validatePaymasterUserOp`. The `pre_verify` frame carries this forward: it is a `DEFAULT`-mode frame, so it may write storage and make value-carrying calls, and [PREFIX-110]/[PREFIX-120] bind it to the `pay` frame that follows it (see [Rationale for `pre_verify` frames](#rationale-for-pre_verify-frames)).
+* **Privacy pools and other shared-state validation**, such as reading a shielded pool's Merkle root, relied on ERC-7562's associated-storage rule for staked entities. [STORAGE-030] carries the same rule forward: a staked entity may read and write storage associated with it in any contract that is not itself an entity of the transaction, using the same [Associated Storage Rules](#associated-storage-rules) ERC-7562 defines.
+* **Staked paymasters with associated storage**, such as a paymaster that tracks a per-user budget in its own storage, relied on the stake requirement that unlocks broader storage access. [STAKING-010] and [STORAGE-030] reproduce this: staking a contract at the Staking Registry has the same effect here that staking it at an `EntryPoint` had under ERC-7562.
+
+A contract written against ERC-7562's rules therefore needs no change in its validation logic to keep working here; only the entry points differ, since `validateUserOp` and `validatePaymasterUserOp` calls are replaced by `self_verify`/`only_verify` and `pay` frames respectively, and `initCode` execution is replaced by the `deploy` frame.
 
 This document introduces no consensus change and requires no change to EIP-8141. It does not modify ERC-4337 or ERC-7562. It replaces the frame transaction sections of any draft of ERC-7562 that included them. A node may implement this document alongside ERC-7562, since the two apply to different transaction types.
 
@@ -348,31 +382,6 @@ A node that implements only the public mempool of EIP-8141 remains compatible. E
 **Revalidation load.** A new head can force many revalidations. [LIFECYCLE-050] lets a node select only the affected transactions. A node that ignores it is exposed to a load attack proportional to the size of its mempool.
 
 **Untested at scale.** Neither ERC-7562's rules nor the frame transaction rules here have seen adversarial production traffic at meaningful scale. Most historical ERC-4337 traffic bypassed the public peer network through private relays.
-
-## Appendix A: Staking Registry Contract TODO move to Specification
-
-Frame transactions have no `EntryPoint` contract to hold a stake ledger, and `ENTRY_POINT` holds no state. Stake is therefore kept in a separate contract at `STAKING_REGISTRY_ADDRESS`. It implements this interface:
-
-```solidity
-interface IStakingRegistry {
-    /// Lock `msg.value` as the caller's stake, with the given unstake delay.
-    function addStake(uint32 unstakeDelaySec) external payable;
-
-    /// Begin the withdrawal delay. From this point the caller is not staked.
-    function unlockStake() external;
-
-    /// Withdraw the stake after the delay has passed.
-    function withdrawStake(address payable withdrawAddress) external;
-
-    /// Return the stake information a node needs to apply STAKING-010.
-    function getDepositInfo(address account)
-        external
-        view
-        returns (uint256 stake, uint32 unstakeDelaySec, uint64 withdrawTime);
-}
-```
-
-`withdrawTime` is zero while no withdrawal has been initiated. A node applies [STAKING-010] to the values `getDepositInfo` returns.
 
 ## Copyright
 
