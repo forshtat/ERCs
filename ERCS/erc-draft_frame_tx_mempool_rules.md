@@ -7,7 +7,7 @@ status: Draft
 type: Standards Track
 category: ERC
 created: 2026-09-21
-requires: 1153, 7702, 7819, 7843, 7951, 8037, 8141
+requires: 1153, 7702, 7819, 7843, 7951, 8037, 8141, 8250
 ---
 
 ## Abstract
@@ -60,7 +60,8 @@ A **local rule** depends on a node's own mempool contents and opinions on entiti
 | `MAX_VERIFY_STATE_GAS` | `500_000` | Maximum state gas ([EIP-8037](./eip-8037.md)) budgeted across the validation prefix. Same value as EIP-8141. |
 | `MIN_UNSTAKE_DELAY` | `86400` | One day. A withdrawal delay long enough to deter most Sybil attacks. |
 | `MIN_STAKE_VALUE` | per-chain | A non-trivial but not excessive amount, roughly the equivalent of USD 1000 in the native token. |
-| `SAME_SENDER_MEMPOOL_COUNT` | `1` | Maximum pending transactions from one sender. |
+| `SAME_NONCE_KEY_MEMPOOL_COUNT` | `4` | Maximum pending transactions per `(sender, nonce key)` lane ([EIP-8250](./eip-8250.md)). |
+| `SAME_SENDER_MEMPOOL_COUNT` | `64` | Maximum pending transactions from one sender, summed across all of its nonce-key lanes. |
 | `SAME_UNSTAKED_ENTITY_MEMPOOL_COUNT` | `10` | Base number of pending transactions that may reference the same unstaked sponsoring payer. |
 | `THROTTLED_ENTITY_MEMPOOL_COUNT` | `4` | Pending transactions allowed for a throttled entity. |
 | `THROTTLED_ENTITY_LIVE_BLOCKS` | `10` | Blocks a transaction referencing a throttled entity may stay in the mempool. |
@@ -95,6 +96,7 @@ A **local rule** depends on a node's own mempool contents and opinions on entiti
     * submitting transactions that pass admission validation and fail revalidation;
     * submitting transactions that are valid alone but become invalid when several of them are included together;
     * front-running valid transactions with an economically viable state change that invalidates them.
+14. **Nonce key**: the `key` component of a transaction's [EIP-8250](./eip-8250.md) two-dimensional `nonce`. Transactions sharing a `(sender, key)` pair form one nonce lane, ordered by their `sequence` component; transactions with different keys belong to independent lanes and carry no ordering relationship to each other.
 
 ### Associated Storage Rules (ASSOC)
 
@@ -272,7 +274,7 @@ The following rules apply to all staked entities and to unstaked sponsoring paye
 
 #### Unstaked entities
 
-* **[REPUTATION-210]** An unstaked sender that is neither `THROTTLED` nor `BANNED` may have at most `SAME_SENDER_MEMPOOL_COUNT` pending transactions in the mempool.
+* **[REPUTATION-210]** An unstaked sender that is neither `THROTTLED` nor `BANNED` may have at most `SAME_NONCE_KEY_MEMPOOL_COUNT` pending transactions per nonce key, and at most `SAME_SENDER_MEMPOOL_COUNT` pending transactions in total across its nonce keys ([LIFECYCLE-010]). A `THROTTLED` sender is instead limited to `THROTTLED_ENTITY_MEMPOOL_COUNT` pending transactions in total, regardless of how many nonce keys it uses.
 * **[REPUTATION-220]** An unstaked sponsoring payer that is neither `THROTTLED` nor `BANNED` may have at most `opsAllowed` pending transactions in the mempool, where `opsAllowed = SAME_UNSTAKED_ENTITY_MEMPOOL_COUNT + inclusionRate * min(included, MAX_TXS_ALLOWED_UNSTAKED_ENTITY)`. For a new entity this is `SAME_UNSTAKED_ENTITY_MEMPOOL_COUNT`.
 
 [REPUTATION-220] replaces the public mempool's `MAX_PENDING_TXS_USING_NON_CANONICAL_PAYMASTER` cap of one pending transaction per non-canonical paymaster. It lets an unstaked payer with a good record carry more.
@@ -285,7 +287,7 @@ The following rules apply to all staked entities and to unstaked sponsoring paye
 
 ### Replacement, Eviction and Revalidation (LIFECYCLE)
 
-* **[LIFECYCLE-010]** A pending transaction is identified by `(sender, nonce)`. Two transactions with the same identity are alternatives, at most one of which can ever be included. A node MUST keep at most `SAME_SENDER_MEMPOOL_COUNT` pending transactions per sender.
+* **[LIFECYCLE-010]** A pending transaction is identified by `(sender, nonce)`, where `nonce` is EIP-8250's `(key, sequence)` pair. Two transactions with the same `(sender, key, sequence)` are alternatives, at most one of which can ever be included ([LIFECYCLE-020] governs replacement). Within one `(sender, key)` lane, a node MUST NOT admit a transaction unless its `sequence` is the lane's next expected value or contiguous with a `sequence` the node already holds pending for that lane. A node MUST keep at most `SAME_NONCE_KEY_MEMPOOL_COUNT` pending transactions per `(sender, key)` lane, and at most `SAME_SENDER_MEMPOOL_COUNT` pending transactions per sender, summed across all of its lanes.
 * **[LIFECYCLE-020]** A replacement MUST be valid under every rule in this document. A node SHOULD accept and propagate it only if it increases both `max_fee_per_gas` and `max_priority_fee_per_gas` by at least a configured minimum increment. 10% is the conventional default. A replacement MAY name a different payer.
 * **[LIFECYCLE-030]** When a node's resource limits are reached, it SHOULD evict in this order: transactions that are already invalid against the current head, then transactions with the nearest expiry deadline, then transactions with the lowest effective priority fee. Evicted and replaced transactions MUST NOT be propagated again.
 * **[LIFECYCLE-040]** When a new canonical block is accepted, a node MUST remove the transactions the block includes and update payer reservations. It MUST revalidate every pending transaction that depends on state the block changed. This includes at least:
@@ -350,11 +352,13 @@ ERC-7562 validates a `UserOperation` a second time immediately before it enters 
 
 ### Rationale for the mempool count constants
 
-Two constants bound how many pending transactions an entity may occupy at once: `SAME_SENDER_MEMPOOL_COUNT` for `tx.sender`, and `THROTTLED_ENTITY_MEMPOOL_COUNT` for a throttled entity.
+Three constants bound how many pending transactions an entity may occupy at once: `SAME_NONCE_KEY_MEMPOOL_COUNT` and `SAME_SENDER_MEMPOOL_COUNT` for `tx.sender`'s nonce-key lanes ([EIP-8250](./eip-8250.md)), and `THROTTLED_ENTITY_MEMPOOL_COUNT` for a throttled entity of any role.
 
-`SAME_SENDER_MEMPOOL_COUNT` is `1`, matching the public mempool. A sender has only one meaningful next transaction at a time; changing it is a replacement, not a second pending transaction, and [LIFECYCLE-010] and [LIFECYCLE-020] already cover replacement. Allowing more would let one address occupy multiple mempool slots when at most one of them can ever be included.
+`SAME_NONCE_KEY_MEMPOOL_COUNT` is `4`, the same value as `THROTTLED_ENTITY_MEMPOOL_COUNT`. Within one `(sender, key)` lane, transactions are still strictly ordered by `sequence`, so a lane behaves like a single throttled queue no matter how good the sender's reputation is, and the same short fee-bump-chain depth serves it.
 
-`THROTTLED_ENTITY_MEMPOOL_COUNT` is `4`, deliberately equal to `THROTTLED_ENTITY_BLOCK_COUNT`. A throttled entity can have at most `THROTTLED_ENTITY_BLOCK_COUNT` of its transactions included per block a node builds, so holding more than that many pending at once cannot be drained any faster; the excess would just occupy mempool resources for up to `THROTTLED_ENTITY_LIVE_BLOCKS` blocks before eviction, with no matching chance of inclusion. Setting the mempool count equal to the per-block count keeps a throttled entity's queue exactly as deep as one block can clear.
+`SAME_SENDER_MEMPOOL_COUNT` is `64`, that is, `16 * SAME_NONCE_KEY_MEMPOOL_COUNT`, treating 16 as a generous number of nonce-key lanes one wallet reasonably keeps active in parallel. EIP-8250 lets a sender advance many independent lanes at once; capping the sender at a single flat value, as the public mempool's one-pending-transaction rule does, would defeat that parallelism. Multiplying the per-lane cap by an assumed lane count instead keeps the sender-wide total high while [LIFECYCLE-010]'s per-lane cap still bounds how deep any one lane's replacement chain can get.
+
+`THROTTLED_ENTITY_MEMPOOL_COUNT` stays low, at `4`, deliberately equal to `THROTTLED_ENTITY_BLOCK_COUNT`. A throttled entity can have at most `THROTTLED_ENTITY_BLOCK_COUNT` of its transactions included per block a node builds, so holding more than that many pending at once cannot be drained any faster; the excess would just occupy mempool resources for up to `THROTTLED_ENTITY_LIVE_BLOCKS` blocks before eviction, with no matching chance of inclusion. A throttled sender is held to this single flat total instead of its per-lane allowance ([REPUTATION-210]), because a reputation bad enough to throttle it overrides the parallelism EIP-8250 otherwise grants.
 
 ### Mitigating the mass invalidation attack
 
