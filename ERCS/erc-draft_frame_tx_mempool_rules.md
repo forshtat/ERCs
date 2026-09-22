@@ -55,7 +55,8 @@ A **local rule** depends on a node's own mempool contents and opinions on entiti
 
 | Name | Value | Description |
 |---|---|---|
-| `MAX_VERIFY_GAS` | `100_000` | Maximum gas a node expends validating signatures and simulating the validation prefix. Same value as EIP-8141. |
+| `MAX_VERIFY_GAS` | `100_000` | Maximum execution gas budget for a single unstaked or default-code entity's validation frames. Same value as EIP-8141. |
+| `MAX_VERIFY_GAS_STAKED_ENTITY` | `1_000_000` | Maximum execution gas budget for a single staked entity's validation frames. |
 | `MAX_VERIFY_STATE_GAS` | `500_000` | Maximum state gas ([EIP-8037](./eip-8037.md)) budgeted across the validation prefix. Same value as EIP-8141. |
 | `MIN_UNSTAKE_DELAY` | `86400` | One day. A withdrawal delay long enough to deter most Sybil attacks. |
 | `MIN_STAKE_VALUE` | per-chain | A non-trivial but not excessive amount, roughly the equivalent of USD 1000 in the native token. |
@@ -67,7 +68,7 @@ A **local rule** depends on a node's own mempool contents and opinions on entiti
 | `MIN_INCLUSION_RATE_DENOMINATOR` | `10` | Denominator in the reputation formula. |
 | `THROTTLING_SLACK` | `10` | Lets an entity legitimately fail some transactions without being throttled. |
 | `BAN_SLACK` | `50` | Lets a throttled entity fail some transactions without being banned. |
-| `BAN_TXS_SEEN_PENALTY` | `10000` | Value written into an entity's `seen` counter to ban it. |
+| `BAN_DURATION_HOURS` | `72` | Hours a node keeps an entity's explicit `banned` flag set after [REPUTATION-030] triggers it. |
 | `MAX_TXS_ALLOWED_UNSTAKED_ENTITY` | `10000` | Upper bound on `included` when computing the allowance of an unstaked sponsoring payer. |
 | `STAKING_REGISTRY_ADDRESS` | per-chain | Address of the Staking Registry contract (see [Staking Registry Contract](#staking-registry-contract)). |
 
@@ -85,7 +86,7 @@ A **local rule** depends on a node's own mempool contents and opinions on entiti
    Every validation frame is attributed to exactly one entity. An `expiry_verify` frame is attributed to no entity as its code is protocol-defined.
 5. **Default-code entity**: an entity whose account has the empty code hash and therefore executes EIP-8141's default code. It has no bytecode to trace, is never staked, and is exempt from the opcode, call and storage rules.
 6. **Staked entity**: an entity that has a stake of at least `MIN_STAKE_VALUE` and an unstake delay of at least `MIN_UNSTAKE_DELAY`, as reported by the **Staking Registry** smart contract, and whose stake is not being withdrawn.
-7. **Associated storage**: a storage slot of any contract is *associated* with address `A` according to the [Associated Storage Rules](#associated-storage-rules).
+7. **Associated storage**: a storage slot of any contract is *associated* with address `A` according to the [Associated Storage Rules](#associated-storage-rules-assoc).
 9. **Canonical paymaster**: a contract whose runtime code exactly matches the canonical paymaster implementation defined by EIP-8141.
 10. **Admission validation**: the simulation a node performs before it first accepts a transaction.
 11. **Revalidation**: a re-simulation of a pending transaction against a newer head or a candidate block, as described in [Replacement, Eviction and Revalidation](#replacement-eviction-and-revalidation-lifecycle).
@@ -95,14 +96,15 @@ A **local rule** depends on a node's own mempool contents and opinions on entiti
     * submitting transactions that are valid alone but become invalid when several of them are included together;
     * front-running valid transactions with an economically viable state change that invalidates them.
 
-### Associated Storage Rules
+### Associated Storage Rules (ASSOC)
 
-A storage slot of any contract is associated with address `A` if:
+Several rules below grant an entity broader access to storage that is *associated* with it, rather than only to a contract's own account storage. Associated storage identifies the slots a well-behaved contract is expected to use to track state for a specific address, such as an ERC-20 balance mapping keyed by that address, without requiring the contract to declare in advance which slots those are.
 
-1. the slot's own value is `A`; or
-2. the slot was computed as `keccak256(A || x) + n`, where `x` is a `bytes32` value and `n` is in the range 0 to 128.
+* **[ASSOC-010]** A storage slot of any contract is associated with address `A` if the slot's own value equals `A`.
+* **[ASSOC-020]** A storage slot of any contract is associated with address `A` if the slot was computed as `keccak256(A || x) + n`, where `x` is a `bytes32` value and `n` is an integer in the range 0 to 128. This covers the common Solidity mapping and dynamic array layouts keyed or indexed by `A`, together with a fixed run of slots reachable from them.
+* **[ASSOC-030]** A node determines association by testing the slots a validation frame actually accesses against [ASSOC-010] and [ASSOC-020]; a contract need not prove or register which of its slots are associated with `A`.
 
-This is the same rule ERC-7562 uses to determine associated storage for `UserOperation`s.
+This is the same rule ERC-7562 uses to determine associated storage for `UserOperation`s. [STORAGE-020], [STORAGE-030] and [STORAGE-120] rely on it to decide which storage outside a contract's own account a transaction may touch.
 
 ### Execution Model
 
@@ -131,7 +133,7 @@ This is the same rule ERC-7562 uses to determine associated storage for `UserOpe
 
 ### Budgets (BUDGET)
 
-* **[BUDGET-010]** The sum of `limits.execution` across the validation prefix, plus the intrinsic cost of validating `tx.signatures`, MUST NOT exceed `MAX_VERIFY_GAS`.
+* **[BUDGET-010]** A node MUST track the sum of `limits.execution` separately per entity, over that entity's own validation frames; a `pre_verify` frame counts toward the entity of the approving frame it immediately precedes, and the intrinsic cost of validating `tx.signatures` counts toward the sender. For an unstaked or default-code entity, that sum MUST NOT exceed `MAX_VERIFY_GAS`. For a staked entity, that sum MUST NOT exceed `MAX_VERIFY_GAS_STAKED_ENTITY` instead. Tracking the budget per entity, rather than once across the whole prefix, is what lets a staked entity use a higher limit without extending that allowance to the other, unstaked entities of the same transaction.
 * **[BUDGET-020]** The sum of `limits.state` across the validation prefix MUST NOT exceed `MAX_VERIFY_STATE_GAS`.
 
 ### Signatures (SIGNATURE)
@@ -243,16 +245,17 @@ This is the public mempool's reservation rule, applied to every payer, not only 
 2. **`included`**: a per-entity counter of how many transactions that were previously counted in `seen` for that entity were included in a canonical block. A node determines this from the block's transactions and receipts.
 3. **Refresh rate**: every hour, both counters are updated as `value = value * 23 // 24`. The effect is a reduction to about 1% after four days.
 4. **`inclusionRate`**: the ratio of `included` to `seen`.
+5. **`banned`**: a per-entity boolean flag, initially `false` and independent of `seen` and `included`, that a node sets directly when [REPUTATION-030] attributes an inclusion-time failure to the entity. A node clears it `BAN_DURATION_HOURS` after it was set.
 
 #### Calculation
 
-Let `max_seen = seen // MIN_INCLUSION_RATE_DENOMINATOR`. The reputation of an entity is:
+Let `max_seen = seen // MIN_INCLUSION_RATE_DENOMINATOR`. Since `BAN_SLACK` is greater than `THROTTLING_SLACK`, the following conditions, together with the `banned` flag, partition every entity into exactly one reputation state, with no dependence on evaluation order:
 
-1. **BANNED**: `max_seen > included + BAN_SLACK`
-2. **THROTTLED**: `max_seen > included + THROTTLING_SLACK`
-3. **OK**: otherwise
+* **BANNED**: `banned` is `true`, or `max_seen > included + BAN_SLACK`
+* **THROTTLED**: `banned` is `false` and `included + THROTTLING_SLACK < max_seen <= included + BAN_SLACK`
+* **OK**: `banned` is `false` and `max_seen <= included + THROTTLING_SLACK`
 
-A new entity starts as `OK`. Reputation is tracked per entity address, not per role. The refresh rate limits a malicious entity to about `BAN_SLACK * MIN_INCLUSION_RATE_DENOMINATOR / 24` invalid transactions per hour. This affects only the mempool network and never the chain.
+A new entity starts as `OK`, with `banned` set to `false`. Reputation is tracked per entity address, not per role. The refresh rate limits an entity's organic climb toward `BANNED` to about `BAN_SLACK * MIN_INCLUSION_RATE_DENOMINATOR / 24` invalid transactions per hour; the explicit `banned` flag set by [REPUTATION-030] is not subject to that limit, since it marks a failure a node caught directly rather than one inferred from the counters. This affects only the mempool network and never the chain.
 
 #### General rules
 
@@ -260,7 +263,7 @@ The following rules apply to all staked entities and to unstaked sponsoring paye
 
 * **[REPUTATION-010]** A `BANNED` address is not allowed into the mempool. Every pending transaction that references it is removed.
 * **[REPUTATION-020]** A `THROTTLED` address is limited to `THROTTLED_ENTITY_MEMPOOL_COUNT` entries in the mempool, to `THROTTLED_ENTITY_BLOCK_COUNT` transactions in a block the node builds, and to `THROTTLED_ENTITY_LIVE_BLOCKS` blocks of residency in the mempool.
-* **[REPUTATION-030]** If a transaction passed the node's most recent revalidation but then fails when the node tries to include it in a block, every entity of that transaction that caused the failure has its `seen` set to `BAN_TXS_SEEN_PENALTY` and its `included` set to zero, so that it becomes `BANNED`.
+* **[REPUTATION-030]** If a transaction passed the node's most recent revalidation but then fails when the node tries to include it in a block, every entity of that transaction that caused the failure has its `banned` flag set to `true`, so that it becomes `BANNED` for `BAN_DURATION_HOURS`. This does not alter the entity's `seen` or `included` counters, which continue to reflect its actual history.
 * **[REPUTATION-040]** When a transaction is replaced by one with higher fees and the replacement removes an entity, such as a sponsoring payer, from the mempool, the removed entity's `seen` is decremented by 1.
 
 #### Staked entities
@@ -331,6 +334,10 @@ EIP-8141's public mempool is deliberately narrow. It permits reading only `tx.se
 
 Because the standard mempool extends the public mempool rather than replacing it, the two stay consistent. A wallet author who targets the public mempool needs no knowledge of this document.
 
+### Rationale for per-entity verification gas budgets
+
+A single combined `MAX_VERIFY_GAS` budget for the whole validation prefix cannot be raised for a staked entity without also raising it for every unstaked entity in the same transaction, since the rule only sees one sum. [BUDGET-010] tracks the sum separately per entity instead, so a staked payer, sender or factory can be given `MAX_VERIFY_GAS_STAKED_ENTITY`, a materially higher allowance for more expensive validation logic such as signature aggregation or a Merkle proof check, while every unstaked entity of the transaction remains bound by `MAX_VERIFY_GAS`, exactly as it would be in a transaction with no staked entity at all.
+
 ### Rationale for `pre_verify` frames
 
 ERC-4337 validation functions may write storage, under the same associated-storage and stake rules that govern reads. A common use is a paymaster that pulls ERC-20 tokens from the sender during validation, so that it is reimbursed before it commits to pay. `VERIFY` frames are static, so the same guarantee needs a non-static frame that runs before the `pay` frame. `DEFAULT`-mode frames already provide that. The alternatives are weaker. A `SENDER` frame after `pay` runs only once the payer has committed, and a post-operation frame leaves the payer with the loss if the transfer fails.
@@ -340,6 +347,14 @@ The `pre_verify` subclass marks such a frame, binds it to one approving frame so
 ### Revalidation instead of a second validation
 
 ERC-7562 validates a `UserOperation` a second time immediately before it enters a bundle, and once more over the whole bundle. That protects the bundler's own self-paid transaction from going stale. A frame transaction is already signed and pays for itself, so there is no such transaction to protect. State still changes after admission, so a node revalidates on every new head and again before it includes a transaction in a block it builds. [REPUTATION-030] and [LIFECYCLE-040] carry the purposes of the second validation. Blame is assigned when revalidation finds that an entity's behaviour changed.
+
+### Rationale for the mempool count constants
+
+Two constants bound how many pending transactions an entity may occupy at once: `SAME_SENDER_MEMPOOL_COUNT` for `tx.sender`, and `THROTTLED_ENTITY_MEMPOOL_COUNT` for a throttled entity.
+
+`SAME_SENDER_MEMPOOL_COUNT` is `1`, matching the public mempool. A sender has only one meaningful next transaction at a time; changing it is a replacement, not a second pending transaction, and [LIFECYCLE-010] and [LIFECYCLE-020] already cover replacement. Allowing more would let one address occupy multiple mempool slots when at most one of them can ever be included.
+
+`THROTTLED_ENTITY_MEMPOOL_COUNT` is `4`, deliberately equal to `THROTTLED_ENTITY_BLOCK_COUNT`. A throttled entity can have at most `THROTTLED_ENTITY_BLOCK_COUNT` of its transactions included per block a node builds, so holding more than that many pending at once cannot be drained any faster; the excess would just occupy mempool resources for up to `THROTTLED_ENTITY_LIVE_BLOCKS` blocks before eviction, with no matching chance of inclusion. Setting the mempool count equal to the per-block count keeps a throttled entity's queue exactly as deep as one block can clear.
 
 ### Mitigating the mass invalidation attack
 
@@ -352,7 +367,7 @@ A transaction that fails admission validation and never enters the mempool is no
 The rules in this document preserve the ERC-4337 use cases that ERC-7562 made possible, even though neither the `EntryPoint` contract nor a `UserOperation` bundle exists here. Each of those use cases depended on a specific relaxation of the base validation rules, and this document keeps the equivalent relaxation:
 
 * **Token paymasters** that pull an ERC-20 payment from the sender during validation relied on a non-static call inside `validatePaymasterUserOp`. The `pre_verify` frame carries this forward: it is a `DEFAULT`-mode frame, so it may write storage and make value-carrying calls, and [PREFIX-110]/[PREFIX-120] bind it to the `pay` frame that follows it (see [Rationale for `pre_verify` frames](#rationale-for-pre_verify-frames)).
-* **Privacy pools and other shared-state validation**, such as reading a shielded pool's Merkle root, relied on ERC-7562's associated-storage rule for staked entities. [STORAGE-030] carries the same rule forward: a staked entity may read and write storage associated with it in any contract that is not itself an entity of the transaction, using the same [Associated Storage Rules](#associated-storage-rules) ERC-7562 defines.
+* **Privacy pools and other shared-state validation**, such as reading a shielded pool's Merkle root, relied on ERC-7562's associated-storage rule for staked entities. [STORAGE-030] carries the same rule forward: a staked entity may read and write storage associated with it in any contract that is not itself an entity of the transaction, using the same [Associated Storage Rules](#associated-storage-rules-assoc) ERC-7562 defines.
 * **Staked paymasters with associated storage**, such as a paymaster that tracks a per-user budget in its own storage, relied on the stake requirement that unlocks broader storage access. [STAKING-010] and [STORAGE-030] reproduce this: staking a contract at the Staking Registry has the same effect here that staking it at an `EntryPoint` had under ERC-7562.
 
 A contract written against ERC-7562's rules therefore needs no change in its validation logic to keep working here; only the entry points differ, since `validateUserOp` and `validatePaymasterUserOp` calls are replaced by `self_verify`/`only_verify` and `pay` frames respectively, and `initCode` execution is replaced by the `deploy` frame.
@@ -365,7 +380,7 @@ A node that implements only the public mempool of EIP-8141 remains compatible. E
 
 **Staking Registry.** The stake provisions depend on a registry contract outside the EIP-8141 protocol. Its correctness is not guaranteed by the protocol. A registry that reports stake incorrectly weakens [STORAGE-030], [OPCODES-040] and [CREATION-020].
 
-**Staked entities can still misbehave.** A staked entity can cause a bounded amount of invalidation before its reputation drops. The bound is `BAN_SLACK * MIN_INCLUSION_RATE_DENOMINATOR / 24` invalid transactions per hour, plus whatever throttling then allows. It is a rate limit, not a guarantee.
+**Staked entities can still misbehave.** A staked entity can cause a bounded amount of invalidation before its reputation drops organically. The bound is `BAN_SLACK * MIN_INCLUSION_RATE_DENOMINATOR / 24` invalid transactions per hour, plus whatever throttling then allows. It is a rate limit, not a guarantee. A staked entity whose failure is instead caught at inclusion time is banned immediately for `BAN_DURATION_HOURS` regardless of its `seen`/`included` history ([REPUTATION-030]).
 
 **`pre_verify` frames run before approval.** A `pre_verify` frame is called by `ENTRY_POINT`, before any `APPROVE` has happened, so nobody has been authorised yet. A contract that treats "the caller is `ENTRY_POINT`" as authority can be made to write by a transaction whose sender is someone else. The target of a `pre_verify` frame SHOULD check that the transaction's sender, as reported by `TXPARAM`, is the party whose state it is about to change.
 
