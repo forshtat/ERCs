@@ -12,51 +12,44 @@ requires: 1153, 7702, 7819, 7843, 7951, 8037, 8141
 
 ## Abstract
 
-This document defines the mempool validation rules for [EIP-8141](./eip-8141.md) Frame Transactions: which transactions a node may admit, which it must reject, and how it tracks the entities that a transaction's validation depends on.
+[EIP-8141](./eip-8141.md) defines a new [EIP-2718](./eip-2718.md) transaction type and a set of rules such transactions need to follow in the canonical public mempool.
+These canonical mempool rules are chosen to be relatively simple and universal in a way that enables a number of high priority use cases.
+Other rulesets can serve use cases made impossible by the canonical mempool rules, but without a public mempool such transactions require a private submission mechanisms.
+This document defines a framework for alternative mempools with customized validation rulesets for [EIP-8141](./eip-8141.md) Frame Transactions.
+The rulesets define which transactions a node may admit to the mempool, which it rejects, and how it tracks the entities that form a transaction's validation process.
 
-EIP-8141 defines a *public mempool* that removes staking and reputation entirely and therefore admits only the narrowest class of validation logic. This document defines the **standard mempool**, an extension of the public mempool. It keeps the public mempool's rules and relaxes its restrictions where a contract has a locked stake and a good reputation, so that it admits validation logic that touches third-party state.
-
-The rules are written from first principles in terms of frames, validation prefixes and `APPROVE`. They are independent of [ERC-4337](./eip-4337.md) and [ERC-7562](./eip-7562.md).
+This document also defines the **standard alternative mempool**, a default ruleset for a permissionless and decentralized public Frame Trnansactions mempool that is less restrictive than the canonical one.
 
 ## Motivation
 
-A frame transaction replaces a hard-coded signature check with EVM code that runs during a *validation prefix*. Before a node relays such a transaction, it must simulate the prefix. If the prefix depends on mutable state that anyone can change, a single cheap state change can invalidate many pending transactions at once, and a node that spends resources on those transactions is never paid. This is the *mass invalidation attack*. Every rule in this document exists to bound it.
+A frame transaction replaces a hard-coded signature check with EVM code that runs during a *validation prefix*. Before a mempool node relays such a transaction, it must execute the entire validation prefix code. If the prefix depends on mutable state that anyone can change, a single state change can invalidate many pending transactions at once, and a node that spends resources on those transactions is never paid. This is the *mass invalidation attack*. Mempools must put in place carefully designed sets of rules to bound this threat.
 
-[ERC-7562](./eip-7562.md) solves the same problem for `UserOperation`s. Frame transactions differ from `UserOperation`s in ways that make a shared rule set awkward:
-
-- There is no `EntryPoint` contract. There is no deposit ledger, no stake ledger, no `handleOps` call and no method signature that identifies which entity is running.
-- Entities are identified by the position and mode of a *frame*, not by call depth.
-- Approval is a native opcode (`APPROVE`), and `VERIFY` frames run in static mode. A `UserOperation`'s validation may write storage. A `VERIFY` frame cannot, so this document defines the `pre_verify` frame to carry such writes.
-- A frame transaction is itself the on-chain transaction. There is no bundle assembled by a third party, and so no "second" or "third" validation pass over a bundle.
-- Many ERC-4337 mechanisms have no counterpart at all: aggregators, paymaster `context`, `initCode`, and the `EntryPoint` access exceptions.
-
-A shared document therefore has to mark half of its rules as belonging to one model or the other. This document instead defines the frame transaction rules once, standalone, and reuses only the ideas that carry over: banned opcodes, associated storage, stake, and reputation.
-
-EIP-8141 already specifies a public mempool policy. That policy is deliberately conservative: it bans reading any storage outside `tx.sender`, allows only a single pending transaction per non-canonical paymaster, and has no notion of stake or reputation. It cannot serve validation logic that legitimately reads shared state, for example a shielded pool's Merkle roots, a registry of authorised signers, or a paymaster that tracks a budget in its own storage. Those cases can be made safe by requiring the responsible contract to lock a stake and by throttling it when it misbehaves. This document specifies how.
+[ERC-4337](./eip-4337.md) relies on rules defined in [ERC-7562](./eip-7562.md) to solve the same problem for `UserOperation`s.
+Frame Transactions differ from `UserOperation`s in ways that make defining a shared rule set inconvenient.
+This document defines the Frame Transaction specific mempool rules in a way that maintains a full backward compatibility with use cases that existed in ERC-4337, like autonomous [ERC-20](./erc-20.md) Token Paymasters, privacy pool withdrawals an more.
 
 ## Specification
 
 ### Relationship to Other Mempools
 
-Three rule sets are relevant:
+This document addresses three distinct named rulesets for Frame Transaction mempools:
 
-1. The **public mempool**, defined by EIP-8141 §Mempool. It contains no stake and no reputation.
-2. The **standard mempool**, defined by this document.
-3. **Alternative mempools**, which are out of scope here (see [Alternative Mempools](#alternative-mempools)).
+1. The **canonical public mempool**, as defined by EIP-8141 in the [Mempool](./eip-8141.md#Mempool) section.
+2. The **standard alternative mempool**, as defined by this document.
+3. The **non-standard alternative mempools**, which are defined by third party mempool operators as defined in [Alternative Mempools](#alternative-mempools) section.
 
-The standard mempool extends the public mempool. Its structural rules, budgets and validation-trace rules are the public mempool's, relaxed only where a contract has a stake or a reputation that backs the relaxation. Each relaxation is called out where the rule appears. Consequently a transaction that the public mempool accepts is accepted here, with three exceptions: [OPCODES-020], which the public mempool does not have; refusals under the reputation rules, which the public mempool does not have either; and refusals under local rules, which depend on the node's own mempool contents.
-
-A transaction that violates a public mempool rule MUST NOT be propagated over the public mempool, as EIP-8141 already requires. It may be propagated over the standard mempool's own transport if it satisfies this document.
+A transaction that violates a canonical public mempool rule MUST NOT be propagated over the public mempool, as EIP-8141 requires. It may only be propagated over the appropriate alternative mempool's own transport if it satisfies its rules. One transaction may be propagated over multiple alternative mempools if it satisfies all of their rules.
 
 ### Rule Types
 
-There are two types of validation rule: **network-wide rules** and **local rules**.
+Pulbic transaction mempools are shared by multiple nodes in a peer-to-peer network, while each node maintains its own view of the mempool and participant reputations at all times.
+Therefore, there are two types of validation rule: **network-wide rules** and **local node rules**.
 
 A violation of any rule by a frame transaction results in the transaction being dropped from the mempool and excluded from any block the node builds.
 
-A **network-wide rule** is a rule whose violation by a transaction damages the standing of the peer that sent that transaction into the standard mempool. A peer with critically low standing is treated as a **spammer** (see [Propagation](#propagation-propagation)).
+A peer-to-peer mempool networks rely on participant reputations to limit the threat of mass transaction invalidation. A **network-wide rule** is a rule whose violation by a transaction damages the reputation of the peer that sent that transaction into the standard mempool. A peer with critically low standing is treated as a **spammer** according to the  [Propagation Rules](#propagation-propagation).
 
-A **local rule** depends on a node's own mempool contents. Different nodes may hold different mempool contents, so no consensus is possible and no peer is penalised for a local rule violation. Local rules are marked *(Local)*. Every other rule is network-wide.
+A **local rule** depends on a node's own mempool contents and opinions on entities' reputations. Different nodes may hold different mempool contents, so no consensus is possible and peers are never penalised for a local rule violation. Local rules are marked *(Local)* and all other rule are network-wide.
 
 ### Constants
 
@@ -80,29 +73,28 @@ A **local rule** depends on a node's own mempool contents. Different nodes may h
 
 ### Definitions
 
-1. **Validation prefix**: the shortest prefix of a transaction's frames whose successful execution sets `payer`, as defined by EIP-8141. Frames after the prefix are outside this document's scope. They are already paid for, and nothing here constrains them.
+1. **Validation prefix**: the shortest prefix of a transaction's frames whose successful execution sets `payer`, as defined by EIP-8141. Frames after the prefix belong to the **execution body** of the Frame Transaction and are largely outside this document's scope.
 2. **Validation frame**: a frame in the validation prefix.
-3. **Frame subclasses**: the EIP-8141 mode subclassifications `self_verify`, `only_verify`, `pay`, `expiry_verify` and `deploy`, and the `pre_verify` subclass that this document defines in [PREFIX-110](#validation-prefix-and-structure-prefix).
+3. **Frame subclasses**: a heuristic classification of a call frame within a Frame Transactgion based on its role and behaviour.
+   The EIP-8141 mode subclassifications defines the following subclasses: `self_verify`, `only_verify`, `pay`, `expiry_verify` and `deploy`; the `pre_verify` subclass is additionally defined in this document.
 4. **Entity**: an address that a validation frame executes as, attributed by role:
     - The **sender** is `tx.sender`. It runs the `self_verify` or `only_verify` frame.
     - The **payer** is the resolved target of the frame that calls `APPROVE` with a payment scope. It runs the `pay` frame or the `self_verify` frame.
     - The **factory** is the resolved target of the `deploy` frame.
 
-   Every validation frame is attributed to exactly one entity. A `pre_verify` frame is attributed to the entity of the approving frame that follows it. When a `self_verify` frame is used, the sender and the payer are the same address and the same entity. A **sponsoring payer** is a payer whose address differs from `tx.sender`. An `expiry_verify` frame is attributed to no entity: its code is protocol-defined.
-5. **Default-code entity**: an entity whose account has the empty code hash and therefore executes EIP-8141's default code. It has no bytecode to trace, is never staked, and is exempt from the opcode, call and storage rules. Its exposure is governed by [SOLVENCY-010](#payer-solvency-solvency).
-6. **Staked entity**: an entity that has a stake of at least `MIN_STAKE_VALUE` and an unstake delay of at least `MIN_UNSTAKE_DELAY`, as reported by the Staking Registry, and whose stake is not being withdrawn (see [STAKING-010](#stake-staking)).
-7. **Associated storage**: a storage slot of any contract is *associated* with address `A` if:
-    1. the slot's own value is `A`; or
-    2. the slot was computed as `keccak(A || x) + n`, where `x` is a `bytes32` value and `n` is in the range 0 to 128.
-8. **Using an address**: accessing the code of an address in any way, by executing a `*CALL` or an `EXTCODE*` opcode on it.
-9. **Canonical paymaster**: a contract whose runtime code exactly matches the canonical paymaster implementation defined by EIP-8141 §Paymasters.
+   Every validation frame is attributed to exactly one entity. An `expiry_verify` frame is attributed to no entity as its code is protocol-defined.
+5. **Default-code entity**: an entity whose account has the empty code hash and therefore executes EIP-8141's default code. It has no bytecode to trace, is never staked, and is exempt from the opcode, call and storage rules.
+6. **Staked entity**: an entity that has a stake of at least `MIN_STAKE_VALUE` and an unstake delay of at least `MIN_UNSTAKE_DELAY`, as reported by the **Staking Registry** smart contract, and whose stake is not being withdrawn.
+7. **Associated storage**: a storage slot of any contract is *associated* with address `A` according to the [Associated Storage Rules](TODO?)
+9. **Canonical paymaster**: a contract whose runtime code exactly matches the canonical paymaster implementation defined by EIP-8141.
 10. **Admission validation**: the simulation a node performs before it first accepts a transaction.
 11. **Revalidation**: a re-simulation of a pending transaction against a newer head or a candidate block, as described in [Replacement, Eviction and Revalidation](#replacement-eviction-and-revalidation-lifecycle).
 12. **Spammer**: a peer that attempts to exhaust the mempool network by sending a large number of transactions that were never valid. See [PROPAGATION-050](#propagation-propagation).
+13. **Mass mempool invalidation** TODO
 
 ### Execution Model
 
-`VERIFY` frames run in static mode (EIP-8141 §Frame Modes). Only `APPROVE` may change state or transaction context in them. Storage writes, transient storage writes, logs, contract creation and value-carrying calls therefore revert inside a `VERIFY` frame at the EVM level, regardless of any mempool rule. The non-static frames in the validation prefix are the `deploy` frame and any `pre_verify` frame, which run in `DEFAULT` mode. Rules in this document that mention writes, contract creation or value calls consequently take effect only in those frames. A failed `DEFAULT`-mode frame does not invalidate a transaction. Only the failure of a `VERIFY` frame does.
+`VERIFY` frames run in static mode. Only `APPROVE` may change state or transaction context in them. Storage writes, transient storage writes, logs, contract creation and value-carrying calls are therefore unavailable inside a `VERIFY` frame at the EVM level, regardless of any mempool rule. The non-static frames in the validation prefix are the `deploy` frame defined in EIP-8141 and the newly defined `pre_verify` frame, both of which run in `DEFAULT` mode. Rules in this document that mention writes, contract creation or value calls consequently take effect only in those frames. A failed `DEFAULT`-mode frame does not invalidate a transaction. Only the failure of a `VERIFY` frame does.
 
 ### Validation Prefix and Structure (PREFIX)
 
@@ -113,6 +105,7 @@ A **local rule** depends on a node's own mempool contents. Different nodes may h
     * `[deploy, only_verify, pay]`
 
   In every shape, each approving frame (`self_verify`, `only_verify` or `pay`) MAY be immediately preceded by one `pre_verify` frame, as [PREFIX-110] describes.
+  TODO expiry frame not mentioned
 * **[PREFIX-020]** If a `deploy` frame is present it MUST be the first frame of the prefix, not counting a leading `expiry_verify` frame. There is at most one `deploy` frame.
 * **[PREFIX-030]** A `self_verify` or `only_verify` frame MUST run in `VERIFY` mode, MUST target `tx.sender` (explicitly or with a null target), and MUST successfully call `APPROVE` with the scope its `flags` declare: `APPROVE_EXECUTION_AND_PAYMENT` for `self_verify`, `APPROVE_EXECUTION` for `only_verify`. A `pay` frame MUST run in `VERIFY` mode, MUST have `flags` equal to `APPROVE_PAYMENT`, and MUST successfully call `APPROVE(APPROVE_PAYMENT)`.
 * **[PREFIX-040]** No frame in the validation prefix may carry `ATOMIC_BATCH_FLAG`.
@@ -296,29 +289,11 @@ A node applies the rules in this order:
 
 ## Rationale
 
-### Why a standalone standard
-
-[ERC-7562](./eip-7562.md) was written for `UserOperation`s, and its rules are built on an `EntryPoint` contract: entities are found by the `EntryPoint`'s call depth and method signatures, stake and deposits live in the `EntryPoint`, and half of the reputation rules exist to compensate for bundle assembly and multi-pass validation. Frame transactions have none of that. Keeping both models in one document forces every rule to carry a marker that says which model it belongs to, and it hides the frame transaction rules that have no counterpart, such as the validation prefix shapes. Writing the frame transaction rules once, in the vocabulary of frames, produces a document that an implementer can read from beginning to end without knowing ERC-4337.
-
-The ideas that transfer are unchanged: environment-reading opcodes are blocked, storage is limited to storage associated with the transaction's own entities, contracts that need broader access must lock a stake, and a reputation that follows the ratio of included to seen transactions throttles those that misbehave.
-
 ### Relationship to the public mempool
 
 EIP-8141's public mempool is deliberately narrow. It permits reading only `tx.sender`'s storage, and it caps non-canonical paymasters at one pending transaction each. That is the correct default for a network with no way to attribute blame. It cannot host validation that legitimately depends on shared state: a shielded pool's Merkle roots, a registry of authorised signers, or a paymaster with a budget in its own storage. Stake and reputation give a node what the public mempool lacks: an economic cost for creating an abusive entity, and a mechanism that throttles an entity once it causes invalidations.
 
 Because the standard mempool extends the public mempool rather than replacing it, the two stay consistent. A wallet author who targets the public mempool needs no knowledge of this document.
-
-### Rationale for limiting opcodes
-
-Validation runs off-chain, before a block exists. Opcodes that read the block or the transaction environment expose values that differ between simulation and inclusion. A transaction that passes `require(block.number == 12345)` off-chain fails once it is included in a later block, and an attacker can cheaply fill a mempool with transactions that pass validation and fail on-chain.
-
-`ORIGIN` and the introspection opcodes are allowed because their results are fixed by the transaction and by the earlier frames.
-
-### Rationale for limiting storage access
-
-Validation must not overlap. A single storage write must not be able to invalidate a large number of pending transactions. Restricting each transaction to `tx.sender`'s storage and to storage associated with its own entities means one state change can invalidate at most the transactions of one entity.
-
-Because `VERIFY` frames run in static mode, the rules for validation frames are read rules. Write rules matter only for the `deploy` frame.
 
 ### Rationale for `pre_verify` frames
 
@@ -326,17 +301,11 @@ ERC-4337 validation functions may write storage, under the same associated-stora
 
 The `pre_verify` subclass marks such a frame, binds it to one approving frame so that each write is attributed to an entity, and allows only one per approving frame. Attribution is what lets the storage and reputation rules apply to writes exactly as they apply to reads. One frame is enough, because its target can call any number of contracts.
 
-### Rationale for requiring a stake
-
-A globally used contract, such as a shared paymaster, a factory, or a shared account implementation, needs storage that is not associated with a single sender. An EOA's every invalidating action costs it a paid transaction. Such a contract has no comparable cost, so it needs another deterrent. If it causes many transactions to fail after admission, its reputation drops and it is throttled. A stake makes it expensive to re-create the contract under a new address and start again. The stake is never slashed, because it serves only detection. The lock-up period is what raises the capital cost.
-
-This document extends the storage privileges of a staked entity to every role, including the sender and the payer. In ERC-7562 they belonged only to paymasters and factories. A frame transaction's sender may be the only contract in the prefix, and the same deterrent applies to it.
-
 ### Revalidation instead of a second validation
 
 ERC-7562 validates a `UserOperation` a second time immediately before it enters a bundle, and once more over the whole bundle. That protects the bundler's own self-paid transaction from going stale. A frame transaction is already signed and pays for itself, so there is no such transaction to protect. State still changes after admission, so a node revalidates on every new head and again before it includes a transaction in a block it builds. [REPUTATION-030] and [LIFECYCLE-040] carry the purposes of the second validation. Blame is assigned when revalidation finds that an entity's behaviour changed.
 
-### Definition of the mass invalidation attack
+### Definition of the mass invalidation attack TODO move to definitions section in the beginning
 
 A series of actions is a **mass invalidation attack** if a large number of transactions, having passed admission validation and propagated through the mempool network, later become invalid and ineligible for inclusion.
 
@@ -351,6 +320,8 @@ To prevent these, validation code runs in a sandbox. It is isolated from other t
 A transaction that fails admission validation and never enters the mempool is not an attack. Nodes are expected to apply ordinary measures against spam, such as throttling by API key, IP address, or peer score. An attack is also not considered economically viable if invalidating `N` transactions costs the attacker `N * X` for a sufficiently large `X`. The cheapest invalidating change is a storage write, at 5,000 gas. If a node can process 2,000 invalid transactions per block, such an attack costs 10,000,000 gas per block. The rules in this document add further costs on top.
 
 ## Backwards Compatibility
+
+TODO elaborate how we maintain a backward compatibility of use-cases (token paymasters, privacy pools, staked paymasters with associated storage etc.) for projects that grew to rely on code shaped by 4337+7562.
 
 This document introduces no consensus change and requires no change to EIP-8141. It does not modify ERC-4337 or ERC-7562. It replaces the frame transaction sections of any draft of ERC-7562 that included them. A node may implement this document alongside ERC-7562, since the two apply to different transaction types.
 
@@ -378,7 +349,7 @@ A node that implements only the public mempool of EIP-8141 remains compatible. E
 
 **Untested at scale.** Neither ERC-7562's rules nor the frame transaction rules here have seen adversarial production traffic at meaningful scale. Most historical ERC-4337 traffic bypassed the public peer network through private relays.
 
-## Appendix A: Staking Registry Contract
+## Appendix A: Staking Registry Contract TODO move to Specification
 
 Frame transactions have no `EntryPoint` contract to hold a stake ledger, and `ENTRY_POINT` holds no state. Stake is therefore kept in a separate contract at `STAKING_REGISTRY_ADDRESS`. It implements this interface:
 
