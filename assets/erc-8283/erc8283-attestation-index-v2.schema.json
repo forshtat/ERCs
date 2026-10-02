@@ -1,0 +1,41 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "version": "2.0.0",
+    "type": "object",
+    "description": "ERC-8283 attestation index schema. The entry point of a shared multi-attestation container, mapping attestationSetId values to each set member's signed attestation blob, keyed by attestationFormatId — one lookup key resolves every rendition of the set. Versioned in lockstep with the ERC-7730 descriptor schema carrying the identical version tag — see ERC-8283 'Index file schemas and versioning'.",
+    "required": ["version", "entries"],
+    "additionalProperties": false,
+
+    "properties": {
+
+        "version": {
+            "title": "Schema version",
+            "type": "string",
+            "const": "2.0.0",
+            "description": "Identical to the ERC-7730 descriptor schema version this index is paired with. A consumer MUST treat an index declaring a version it does not implement as invalid."
+        },
+
+        "entries": {
+            "title": "Attestation set entries",
+            "type": "object",
+            "description": "Maps each attestationSetId to its member map.",
+            "propertyNames": {
+                "pattern": "^0x[0-9a-fA-F]{64}$"
+            },
+            "additionalProperties": {
+                "title": "Attestation set members",
+                "type": "object",
+                "description": "Maps each set member's attestationFormatId to the absolute URI of its signed attestation blob.",
+                "propertyNames": {
+                    "pattern": "^0x[0-9a-fA-F]{64}$"
+                },
+                "additionalProperties": {
+                    "title": "Attestation blob URI",
+                    "type": "string",
+                    "format": "uri",
+                    "description": "An absolute URI using the identical scheme that was used to successfully fetch this index.json itself — see 'Index file schemas and versioning' in ERC-8283. Never a relative path."
+                }
+            }
+        }
+    }
+}
