@@ -202,6 +202,12 @@ interface IClearSigningRegistry {
     ///         not verify against the attester.
     error InvalidRegistrationSignature();
 
+    /// @notice Thrown when 'createAttestations' would activate a descriptor hash that was
+    ///         already revoked at the given context — whether by an explicit 'revokeDescriptors'
+    ///         call or by auto-revocation when an earlier registration displaced it. A revoked
+    ///         hash can never become active at that context again.
+    error RevokedDescriptorReused(bytes32 contextKeyId, bytes32 descriptorHash);
+
     /// @notice Register a batch of descriptors backed by attestations.
     ///
     ///         The attester produces the signed attestation artifacts locally and stores them off-chain.
@@ -216,8 +222,13 @@ interface IClearSigningRegistry {
     ///         A larger set uses 'keccak256(abi.encode(descriptorHash, descriptorSchemaMajor, attestationIds))'.
     ///
     ///         Replacing an active '(contextKeyId, descriptorSchemaMajor)' record needs no prior
-    ///         revocation. Replacement is not revocation: a superseded descriptor's content stays
-    ///         valid until the attester revokes its exact 'descriptorHash' with 'revokeDescriptors'.
+    ///         revocation: displacing it auto-revokes the descriptorHash it displaces, at that
+    ///         context, atomically with this call — see 'RevokedDescriptorReused'. This only
+    ///         covers the registered descriptorHash itself; content nested inside it and
+    ///         invisible to the registry (e.g. one function's descriptor inside a manifest)
+    ///         is not auto-revoked when only that nested content changes — it stays valid
+    ///         until the attester separately revokes its own exact 'descriptorHash' with
+    ///         'revokeDescriptors'.
     ///
     /// @param attester       The address of the attester registering the descriptors.
     /// @param descriptors    The descriptors to register, each carrying its attestation set.
