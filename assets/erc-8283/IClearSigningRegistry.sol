@@ -27,14 +27,15 @@ interface IClearSigningRegistry {
         AttestationIdentifier[] attestationIds;
     }
 
-    /// @notice One function at one context being revoked: the attester states that whatever it attested for
-    ///         this function at this context before now is no longer correct.
-    struct FunctionRevocation {
-        /// The context key ID the function is attested under.
+    /// @notice One descriptor at one context being revoked: the attester states that this exact
+    ///         descriptor content is no longer correct at this context. Works uniformly for a
+    ///         whole-contract descriptor, a manifest, or a single-function descriptor — the
+    ///         registry never distinguishes them, only their 'descriptorHash' differs.
+    struct DescriptorRevocation {
+        /// The context key ID the descriptor is attested under.
         bytes32 contextKeyId;
-        /// The function within that context: a 4-byte selector left-aligned in a bytes32
-        /// (the value of a Solidity 'bytes4' cast to 'bytes32'), or the EIP-712 type hash for typed data.
-        bytes32 functionKey;
+        /// The ERC-8176 descriptor hash of the exact content being revoked.
+        bytes32 descriptorHash;
     }
 
     /// @notice A fully resolved active Attestation structure for ResolvedDescriptor.
@@ -81,16 +82,17 @@ interface IClearSigningRegistry {
         uint256         descriptorSchemaMajor
     );
 
-    /// @notice Emitted whenever an attester revokes a function at a context. Revoking the same tuple
-    ///         again emits again, with the later timestamp.
+    /// @notice Emitted whenever an attester revokes a descriptor at a context. Revoking the same
+    ///         pair again emits again, with the later timestamp (audit trail only — revocation
+    ///         has no un-revoke, so the timestamp is never consulted for ordering).
     /// @param attester       The attester the revocation is recorded under.
-    /// @param contextKeyId   The context key ID of the revoked function.
-    /// @param functionKey    The revoked function.
+    /// @param contextKeyId   The context key ID of the revoked descriptor.
+    /// @param descriptorHash The revoked content's ERC-8176 descriptor hash.
     /// @param timestamp      The block timestamp at which the revocation was recorded.
-    event FunctionRevoked(
+    event DescriptorRevoked(
         address indexed attester,
         bytes32 indexed contextKeyId,
-        bytes32         functionKey,
+        bytes32         descriptorHash,
         uint64          timestamp
     );
 
@@ -172,7 +174,7 @@ interface IClearSigningRegistry {
     /// @notice Thrown when a descriptor's attestationIds is empty.
     error EmptyAttestationIds();
 
-    /// @notice Thrown when 'revokeFunctions' is called with an empty 'revocations' array.
+    /// @notice Thrown when 'revokeDescriptors' is called with an empty 'revocations' array.
     error EmptyRevocations();
 
     /// @notice Thrown when a registration reuses an attestation set ID whose stored record
@@ -214,8 +216,8 @@ interface IClearSigningRegistry {
     ///         A larger set uses 'keccak256(abi.encode(descriptorHash, descriptorSchemaMajor, attestationIds))'.
     ///
     ///         Replacing an active '(contextKeyId, descriptorSchemaMajor)' record needs no prior
-    ///         revocation. Replacement is not revocation: attestations for functions whose
-    ///         descriptors changed stay valid until the attester revokes them with 'revokeFunctions'.
+    ///         revocation. Replacement is not revocation: a superseded descriptor's content stays
+    ///         valid until the attester revokes its exact 'descriptorHash' with 'revokeDescriptors'.
     ///
     /// @param attester       The address of the attester registering the descriptors.
     /// @param descriptors    The descriptors to register, each carrying its attestation set.
@@ -246,30 +248,34 @@ interface IClearSigningRegistry {
     /// @param uriLists  The URI lists to publish. No list may be empty.
     function publishMirrorLists(string[][] calldata uriLists) external;
 
-    /// @notice Revokes functions at contexts under the specified 'attester'. Each entry states that
-    ///         whatever the attester attested for that function at that context before now is
-    ///         no longer correct. An attestation for the tuple is void when its signed issue time is
-    ///         at or before the recorded timestamp. Revoking a tuple again moves its timestamp forward.
+    /// @notice Revokes descriptors at contexts under the specified 'attester'. Each entry states that
+    ///         this exact descriptor content is no longer correct at this context. A revoked
+    ///         'descriptorHash' is void forever at that context — there is no un-revoke. Content
+    ///         that was never revoked needs nothing special to stay valid; a correction naturally
+    ///         produces a different 'descriptorHash', so it is never affected by this call.
     ///
-    ///         The registry does not check that the function was ever attested or registered.
+    ///         Works uniformly for a whole-contract descriptor, a manifest, or a single-function
+    ///         descriptor — the registry only ever sees an opaque content hash.
     ///
-    /// @param attester     The attester whose functions are being revoked.
-    /// @param revocations  The '(contextKeyId, functionKey)' tuples to revoke.
+    ///         The registry does not check that the descriptor was ever attested or registered.
+    ///
+    /// @param attester     The attester whose descriptors are being revoked.
+    /// @param revocations  The '(contextKeyId, descriptorHash)' pairs to revoke.
     /// @param signature    EIP-712 signature by the attester authorizing this batch.
     ///                     Required when the revocation transaction is relayed.
-    function revokeFunctions(
+    function revokeDescriptors(
         address              attester,
-        FunctionRevocation[] calldata revocations,
+        DescriptorRevocation[] calldata revocations,
         bytes                calldata signature
     ) external;
 
-    /// @notice The timestamp at which 'attester' last revoked 'functionKey' at 'contextKeyId', or 0 if never revoked.
+    /// @notice The timestamp at which 'attester' revoked 'descriptorHash' at 'contextKeyId', or 0 if never revoked.
     ///
     /// @param attester       The attester whose revocation is being checked.
-    /// @param contextKeyId   The context key ID the function was found under.
-    /// @param functionKey    The queried function.
+    /// @param contextKeyId   The context key ID the descriptor was found under.
+    /// @param descriptorHash The queried content's ERC-8176 descriptor hash.
     /// @return timestamp  The revocation timestamp, or 0 if not revoked.
-    function getFunctionRevocationTimestamp(address attester, bytes32 contextKeyId, bytes32 functionKey)
+    function getDescriptorRevocationTimestamp(address attester, bytes32 contextKeyId, bytes32 descriptorHash)
         external view returns (uint64 timestamp);
 
     /// @notice Resolve all active attestation sets for the specified query with a filter.
