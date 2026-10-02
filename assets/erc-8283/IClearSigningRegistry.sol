@@ -29,7 +29,7 @@ interface IClearSigningRegistry {
 
     /// @notice One descriptor at one context being revoked: the attester states that this exact
     ///         descriptor content is no longer correct at this context. Works uniformly for a
-    ///         whole-contract descriptor, a manifest, or a single-function descriptor — the
+    ///         whole-contract descriptor, a function index, or a single-function descriptor — the
     ///         registry never distinguishes them, only their 'descriptorHash' differs.
     struct DescriptorRevocation {
         /// The context key ID the descriptor is attested under.
@@ -225,7 +225,7 @@ interface IClearSigningRegistry {
     ///         revocation: displacing it auto-revokes the descriptorHash it displaces, at that
     ///         context, atomically with this call — see 'RevokedDescriptorReused'. This only
     ///         covers the registered descriptorHash itself; content nested inside it and
-    ///         invisible to the registry (e.g. one function's descriptor inside a manifest)
+    ///         invisible to the registry (e.g. one function's descriptor inside a function index)
     ///         is not auto-revoked when only that nested content changes — it stays valid
     ///         until the attester separately revokes its own exact 'descriptorHash' with
     ///         'revokeDescriptors'.
@@ -265,7 +265,7 @@ interface IClearSigningRegistry {
     ///         that was never revoked needs nothing special to stay valid; a correction naturally
     ///         produces a different 'descriptorHash', so it is never affected by this call.
     ///
-    ///         Works uniformly for a whole-contract descriptor, a manifest, or a single-function
+    ///         Works uniformly for a whole-contract descriptor, a function index, or a single-function
     ///         descriptor — the registry only ever sees an opaque content hash.
     ///
     ///         The registry does not check that the descriptor was ever attested or registered.
