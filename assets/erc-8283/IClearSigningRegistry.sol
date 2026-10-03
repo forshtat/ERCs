@@ -58,6 +58,10 @@ interface IClearSigningRegistry {
         uint256 descriptorSchemaMajor;
         /// The attestation set ID from the active record — the key into the attestation index file.
         bytes32 attestationSetId;
+        /// The timestamp at which 'attester' revoked 'descriptorHash' at 'contextKeyId', or 0 if never
+        /// revoked. Checked inline so a caller never needs a separate 'getDescriptorRevocationTimestamp'
+        /// call to rule out a dead top-level record — see ERC-8283 Rationale.
+        uint64 revokedAt;
         /// The full resolved array of URIs provided for this Descriptor in the MirrorList.
         string[] descriptorMirrorListUris;
         /// The MirrorList URIs of the index file for retrieving this set's attestation blobs.
