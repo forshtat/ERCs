@@ -27,10 +27,15 @@ interface IClearSigningRegistry {
         AttestationIdentifier[] attestationIds;
     }
 
-    /// @notice One attestation ID being revoked, together with the context IDs to clear immediately.
-    struct RevocationEntry {
-        bytes32 attestationId;
-        bytes32[] contextKeyIds;
+    /// @notice One descriptor at one context being revoked: the attester states that this exact
+    ///         descriptor content is no longer correct at this context. Works uniformly for a
+    ///         whole-contract descriptor, a function index, or a single-function descriptor — the
+    ///         registry never distinguishes them, only their 'descriptorHash' differs.
+    struct DescriptorRevocation {
+        /// The context key ID the descriptor is attested under.
+        bytes32 contextKeyId;
+        /// The ERC-8176 descriptor hash of the exact content being revoked.
+        bytes32 descriptorHash;
     }
 
     /// @notice A fully resolved active Attestation structure for ResolvedDescriptor.
@@ -41,8 +46,6 @@ interface IClearSigningRegistry {
         bytes32 attestationId;
         /// A format identifier calculated as keccak256("erc7730.attestation.<format>")
         bytes32 attestationFormatId;
-        /// The timestamp at which the attester revoked this attestation ID, or 0 if never revoked.
-        uint64 revokedAt;
     }
 
     /// @notice A fully resolved active Descriptor with Attestations.
@@ -55,6 +58,10 @@ interface IClearSigningRegistry {
         uint256 descriptorSchemaMajor;
         /// The attestation set ID from the active record — the key into the attestation index file.
         bytes32 attestationSetId;
+        /// The timestamp at which 'attester' revoked 'descriptorHash' at 'contextKeyId', or 0 if never
+        /// revoked. Checked inline so a caller never needs a separate 'getDescriptorRevocationTimestamp'
+        /// call to rule out a dead top-level record — see ERC-8283 Rationale.
+        uint64 revokedAt;
         /// The full resolved array of URIs provided for this Descriptor in the MirrorList.
         string[] descriptorMirrorListUris;
         /// The MirrorList URIs of the index file for retrieving this set's attestation blobs.
@@ -79,14 +86,17 @@ interface IClearSigningRegistry {
         uint256         descriptorSchemaMajor
     );
 
-    /// @notice Emitted whenever a revocation timestamp is recorded for an ID —
-    ///         an attestation set ID or an individual attestation ID alike.
-    /// @param attester       The attester the ID is revoked under.
-    /// @param attestationId  The revoked ID.
+    /// @notice Emitted whenever an attester revokes a descriptor at a context. Revoking the same
+    ///         pair again emits again, with the later timestamp (audit trail only — revocation
+    ///         has no un-revoke, so the timestamp is never consulted for ordering).
+    /// @param attester       The attester the revocation is recorded under.
+    /// @param contextKeyId   The context key ID of the revoked descriptor.
+    /// @param descriptorHash The revoked content's ERC-8176 descriptor hash.
     /// @param timestamp      The block timestamp at which the revocation was recorded.
-    event AttestationRevoked(
+    event DescriptorRevoked(
         address indexed attester,
-        bytes32 indexed attestationId,
+        bytes32 indexed contextKeyId,
+        bytes32         descriptorHash,
         uint64          timestamp
     );
 
@@ -168,11 +178,11 @@ interface IClearSigningRegistry {
     /// @notice Thrown when a descriptor's attestationIds is empty.
     error EmptyAttestationIds();
 
-    /// @notice Thrown when 'revokeAttestations' is called with an empty 'revocations' array.
+    /// @notice Thrown when 'revokeDescriptors' is called with an empty 'revocations' array.
     error EmptyRevocations();
 
-    /// @notice Thrown when a registration includes an attestation ID that was already revoked.,
-    ///         Attestation IDs are single-use and cannot be re-registered after revocation.
+    /// @notice Thrown when a registration reuses an attestation set ID whose stored record
+    ///         does not match the incoming descriptor.
     error AttestationIdAlreadyUsed(bytes32 attestationId);
 
     /// @notice Thrown when 'updateDescriptorMirrorList' names a descriptor hash the
@@ -196,10 +206,11 @@ interface IClearSigningRegistry {
     ///         not verify against the attester.
     error InvalidRegistrationSignature();
 
-    /// @notice Thrown when a descriptor replaces an active attestation set but the
-    ///         previously active set id has not already been revoked via a prior
-    ///         'revokeAttestations' call — 'createAttestations' never revokes on its own.
-    error MissingRevocation(bytes32 missingAttestationId);
+    /// @notice Thrown when 'createAttestations' would activate a descriptor hash that was
+    ///         already revoked at the given context — whether by an explicit 'revokeDescriptors'
+    ///         call or by auto-revocation when an earlier registration displaced it. A revoked
+    ///         hash can never become active at that context again.
+    error RevokedDescriptorReused(bytes32 contextKeyId, bytes32 descriptorHash);
 
     /// @notice Register a batch of descriptors backed by attestations.
     ///
@@ -214,12 +225,14 @@ interface IClearSigningRegistry {
     ///         A set with a single attestation uses that attestation's own ID directly.
     ///         A larger set uses 'keccak256(abi.encode(descriptorHash, descriptorSchemaMajor, attestationIds))'.
     ///
-    ///         This call never revokes anything itself: replacing an active
-    ///         '(contextKeyId, descriptorSchemaMajor)' record requires a prior, separate
-    ///         'revokeAttestations' call for the displaced set id, or the call reverts with
-    ///         'MissingRevocation'. Callers that want both steps in one transaction MUST
-    ///         batch them themselves (e.g. via a multicall or an EIP-5792 call bundle) —
-    ///         the registry does not provide atomicity across its own functions.
+    ///         Replacing an active '(contextKeyId, descriptorSchemaMajor)' record needs no prior
+    ///         revocation: displacing it auto-revokes the descriptorHash it displaces, at that
+    ///         context, atomically with this call — see 'RevokedDescriptorReused'. This only
+    ///         covers the registered descriptorHash itself; content nested inside it and
+    ///         invisible to the registry (e.g. one function's descriptor inside a function index)
+    ///         is not auto-revoked when only that nested content changes — it stays valid
+    ///         until the attester separately revokes its own exact 'descriptorHash' with
+    ///         'revokeDescriptors'.
     ///
     /// @param attester       The address of the attester registering the descriptors.
     /// @param descriptors    The descriptors to register, each carrying its attestation set.
@@ -250,25 +263,35 @@ interface IClearSigningRegistry {
     /// @param uriLists  The URI lists to publish. No list may be empty.
     function publishMirrorLists(string[][] calldata uriLists) external;
 
-    /// @notice Revokes every specified attestation ID for the specified 'attester' and clears specified context IDs.
-    ///         Entries may name attestation set IDs or individual attestation IDs.
+    /// @notice Revokes descriptors at contexts under the specified 'attester'. Each entry states that
+    ///         this exact descriptor content is no longer correct at this context. A revoked
+    ///         'descriptorHash' is void forever at that context — there is no un-revoke. Content
+    ///         that was never revoked needs nothing special to stay valid; a correction naturally
+    ///         produces a different 'descriptorHash', so it is never affected by this call.
     ///
-    /// @param attester     The attester whose attestations are being revoked.
-    /// @param revocations  The attestation IDs to revoke, each with the context IDs to clear.
+    ///         Works uniformly for a whole-contract descriptor, a function index, or a single-function
+    ///         descriptor — the registry only ever sees an opaque content hash.
+    ///
+    ///         The registry does not check that the descriptor was ever attested or registered.
+    ///
+    /// @param attester     The attester whose descriptors are being revoked.
+    /// @param revocations  The '(contextKeyId, descriptorHash)' pairs to revoke.
     /// @param signature    EIP-712 signature by the attester authorizing this batch.
     ///                     Required when the revocation transaction is relayed.
-    function revokeAttestations(
-        address           attester,
-        RevocationEntry[] calldata revocations,
-        bytes             calldata signature
+    function revokeDescriptors(
+        address              attester,
+        DescriptorRevocation[] calldata revocations,
+        bytes                calldata signature
     ) external;
 
-    /// @notice The timestamp at which 'attester' revoked 'attestationId' or 0 if never revoked.
+    /// @notice The timestamp at which 'attester' revoked 'descriptorHash' at 'contextKeyId', or 0 if never revoked.
     ///
-    /// @param attester       The attester whose revocation is being checked for the specified attestation ID.
-    /// @param attestationId  The queried attestation ID.
+    /// @param attester       The attester whose revocation is being checked.
+    /// @param contextKeyId   The context key ID the descriptor was found under.
+    /// @param descriptorHash The queried content's ERC-8176 descriptor hash.
     /// @return timestamp  The revocation timestamp, or 0 if not revoked.
-    function getRevocationTimestamp(address attester, bytes32 attestationId) external view returns (uint64 timestamp);
+    function getDescriptorRevocationTimestamp(address attester, bytes32 contextKeyId, bytes32 descriptorHash)
+        external view returns (uint64 timestamp);
 
     /// @notice Resolve all active attestation sets for the specified query with a filter.
     ///         The request fields are:
