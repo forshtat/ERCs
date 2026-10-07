@@ -3,7 +3,7 @@
     "version": "2.0.0",
     "type": "object",
     "description": "ERC-8283 function index schema. The registered descriptor of a per-function release, mapping each function selector or EIP-712 message type hash to its own ERC-7730 function descriptor and attestations. Versioned in lockstep with the ERC-7730 descriptor schema carrying the identical version tag — see ERC-8283 'Index file schemas and versioning'.",
-    "required": ["version", "methods", "messages"],
+    "required": ["$schema", "methods", "messages"],
     "additionalProperties": false,
 
     "$defs": {
@@ -49,7 +49,7 @@
                                 "title": "Attestation ID",
                                 "type": "string",
                                 "pattern": "^0x[0-9a-fA-F]{64}$",
-                                "description": "The attester-chosen identifier of this attestation. Not registered on-chain for a function index entry — see ERC-8283 'Manifests' section (Function Indexes)."
+                                "description": "The attester-chosen identifier of this attestation. Not recorded by the registry — see ERC-8283 'Function Indexes'."
                             },
 
                             "attestationFormatId": {
@@ -78,11 +78,12 @@
 
     "properties": {
 
-        "version": {
-            "title": "Schema version",
+        "$schema": {
+            "title": "Schema",
             "type": "string",
-            "const": "2.0.0",
-            "description": "Identical to the ERC-7730 descriptor schema version this function index is paired with. A consumer MUST treat a function index declaring a version it does not implement as invalid."
+            "format": "uri-reference",
+            "pattern": "(^|/)erc8283-function-index-v2\\.schema\\.json$",
+            "description": "The schema this function index conforms to, identified by a URI whose last path segment is this schema's file name. Its version is identical to the ERC-7730 descriptor schema version this function index is paired with. A consumer MUST treat a file naming a version it does not implement as invalid."
         },
 
         "methods": {

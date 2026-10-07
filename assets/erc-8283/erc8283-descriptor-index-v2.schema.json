@@ -3,16 +3,17 @@
     "version": "2.0.0",
     "type": "object",
     "description": "ERC-8283 descriptor index schema. The entry point of a shared multi-descriptor container, mapping ERC-8176 descriptorHash values to the ERC-7730 descriptor JSON file each one identifies. Versioned in lockstep with the ERC-7730 descriptor schema carrying the identical version tag — see ERC-8283 'Index file schemas and versioning'.",
-    "required": ["version", "entries"],
+    "required": ["$schema", "entries"],
     "additionalProperties": false,
 
     "properties": {
 
-        "version": {
-            "title": "Schema version",
+        "$schema": {
+            "title": "Schema",
             "type": "string",
-            "const": "2.0.0",
-            "description": "Identical to the ERC-7730 descriptor schema version this index is paired with. A consumer MUST treat an index declaring a version it does not implement as invalid."
+            "format": "uri-reference",
+            "pattern": "(^|/)erc8283-descriptor-index-v2\\.schema\\.json$",
+            "description": "The schema this index conforms to, identified by a URI whose last path segment is this schema's file name. Its version is identical to the ERC-7730 descriptor schema version this index is paired with. A consumer MUST treat a file naming a version it does not implement as invalid."
         },
 
         "entries": {
