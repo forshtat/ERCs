@@ -1,0 +1,73 @@
+{
+    "$schema": "https://eips.ethereum.org/assets/eip-7730/erc7730-non-abi-dispatch.schema.json",
+    "context": {
+        "$id": "Packed Batch Sender",
+        "contract": {
+            "deployments": [
+                {
+                    "chainId": 1,
+                    "address": "0xYourBatchSenderAddress"
+                }
+            ]
+        }
+    },
+    "metadata": {
+        "owner": "Example",
+        "contractName": "Packed Batch Sender"
+    },
+    "display": {
+        "formats": {
+            "send(bytes data)": {
+                "intent": "Send tokens",
+                "fields": [
+                    {
+                        "path": "data",
+                        "customEncoding": {
+                            "type": "object",
+                            "entries": [
+                                {
+                                    "name": "size",
+                                    "schema": { "type": "uint", "bytes": 2 }
+                                },
+                                {
+                                    "name": "transfers",
+                                    "schema": {
+                                        "type": "bytes",
+                                        "lengthFrom": "size",
+                                        "customEncoding": {
+                                            "type": "sequence",
+                                            "element": {
+                                                "type": "object",
+                                                "entries": [
+                                                    {
+                                                        "name": "token",
+                                                        "schema": { "type": "address" },
+                                                        "label": "Token",
+                                                        "format": "addressName"
+                                                    },
+                                                    {
+                                                        "name": "amount",
+                                                        "schema": { "type": "uint", "bytes": 32 },
+                                                        "label": "Amount",
+                                                        "format": "tokenAmount",
+                                                        "params": { "tokenPath": "~.token" }
+                                                    }
+                                                ]
+                                            }
+                                        }
+                                    }
+                                },
+                                {
+                                    "name": "recipient",
+                                    "schema": { "type": "address" },
+                                    "label": "Recipient",
+                                    "format": "addressName"
+                                }
+                            ]
+                        }
+                    }
+                ]
+            }
+        }
+    }
+}

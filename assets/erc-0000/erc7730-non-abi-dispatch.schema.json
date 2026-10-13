@@ -1470,6 +1470,10 @@
                 "toEnd": {
                     "description": "If true, the node consumes all remaining bytes of its buffer, so it MUST be the last entry of its enclosing object.",
                     "const": true
+                },
+                "customEncoding": {
+                    "description": "Decodes the bytes of this node as their own buffer. The nested node MUST consume all of them.",
+                    "$ref": "#/$customEncoding/node"
                 }
             },
             "required": [
