@@ -1977,7 +1977,8 @@
                     "type": "string"
                 },
                 "cases": {
-                    "type": "object"
+                    "type": "object",
+                    "propertyNames": { "$ref": "#/$customEncoding/caseKey" }
                 }
             },
             "required": [
@@ -2395,8 +2396,14 @@
             ],
             "additionalProperties": false
         },
+        "caseKey": {
+            "title": "A switch case key: $default, a hex value, or a decimal length for lengthOf",
+            "type": "string",
+            "pattern": "^(\\$default|0x[0-9a-fA-F]+|[0-9]+)$"
+        },
         "switchCases": {
             "title": "A switch cases map, including the reserved $default key",
+            "propertyNames": { "$ref": "#/$customEncoding/caseKey" },
             "type": "object",
             "additionalProperties": {
                 "$ref": "#/$customEncoding/switchCaseValue"
@@ -2527,6 +2534,7 @@
                 },
                 "cases": {
                     "type": "object",
+                    "propertyNames": { "$ref": "#/$customEncoding/caseKey" },
                     "additionalProperties": {
                         "oneOf": [
                             {
@@ -2668,6 +2676,7 @@
                         },
                         "cases": {
                             "type": "object",
+                            "propertyNames": { "$ref": "#/$customEncoding/caseKey" },
                             "additionalProperties": {
                                 "enum": [
                                     "CALL",

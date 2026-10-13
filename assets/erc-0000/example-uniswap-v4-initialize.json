@@ -183,14 +183,7 @@
                                 },
                                 {
                                     "name": "beforeSwapReturnDelta",
-                                    "bit": 3,
-                                    "label": "Hook before swap returning a delta",
-                                    "format": "raw",
-                                    "visible": {
-                                        "ifNotIn": [
-                                            false
-                                        ]
-                                    }
+                                    "bit": 3
                                 },
                                 {
                                     "name": "afterSwapReturnDelta",
@@ -225,6 +218,16 @@
                                         ]
                                     }
                                 }
+                            ]
+                        }
+                    },
+                    {
+                        "path": "key.hooks.beforeSwapReturnDelta",
+                        "label": "Hook before swap returning a delta",
+                        "format": "raw",
+                        "visible": {
+                            "ifNotIn": [
+                                false
                             ]
                         }
                     },
