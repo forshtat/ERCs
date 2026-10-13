@@ -55,6 +55,7 @@
                                 "0x00": {
                                     "(address recipient,uint256 amountIn,uint256 amountOutMinimum,bytes path,bool payerIsUser)": {
                                         "intent": "Execute swap with exact input and minimum output",
+                                        "interpolatedIntent": "Swap {amountIn} for at least {amountOutMinimum}",
                                         "fields": [
                                             {
                                                 "path": "recipient",
@@ -64,12 +65,18 @@
                                             {
                                                 "path": "amountIn",
                                                 "label": "Amount in",
-                                                "format": "raw"
+                                                "format": "tokenAmount",
+                                                "params": {
+                                                    "tokenPath": "path.[0:20]"
+                                                }
                                             },
                                             {
                                                 "path": "amountOutMinimum",
                                                 "label": "Minimum amount out",
-                                                "format": "raw"
+                                                "format": "tokenAmount",
+                                                "params": {
+                                                    "tokenPath": "path.[-20:]"
+                                                }
                                             },
                                             {
                                                 "path": "path",

@@ -1877,6 +1877,12 @@
                     "properties": {
                         "customEncoding": {
                             "$ref": "#/$customEncoding/node"
+                        },
+                        "intent": {
+                            "$ref": "#/$display/intent"
+                        },
+                        "interpolatedIntent": {
+                            "$ref": "#/$display/interpolatedIntent"
                         }
                     },
                     "required": [
@@ -1939,6 +1945,9 @@
                         "properties": {
                             "intent": {
                                 "$ref": "#/$display/intent"
+                            },
+                            "interpolatedIntent": {
+                                "$ref": "#/$display/interpolatedIntent"
                             },
                             "fields": {
                                 "$ref": "#/$display/fields"
