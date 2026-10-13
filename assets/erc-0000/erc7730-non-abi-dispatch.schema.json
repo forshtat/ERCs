@@ -1761,7 +1761,14 @@
                     "const": "switch"
                 },
                 "expression": {
-                    "$ref": "#/$customEncoding/node"
+                    "oneOf": [
+                        {
+                            "$ref": "#/$customEncoding/node"
+                        },
+                        {
+                            "$ref": "#/$customEncoding/lengthOf"
+                        }
+                    ]
                 },
                 "payloadFrom": {
                     "type": "string"
@@ -1804,6 +1811,9 @@
                         },
                         {
                             "$ref": "#/$customEncoding/node"
+                        },
+                        {
+                            "$ref": "#/$customEncoding/lengthOf"
                         }
                     ]
                 },
@@ -1814,6 +1824,19 @@
             "required": [
                 "expression",
                 "cases"
+            ],
+            "additionalProperties": false
+        },
+        "lengthOf": {
+            "title": "switch expression yielding the length of a value: bytes for bytes and string, elements for arrays and sequences",
+            "type": "object",
+            "properties": {
+                "lengthOf": {
+                    "type": "string"
+                }
+            },
+            "required": [
+                "lengthOf"
             ],
             "additionalProperties": false
         },
@@ -1932,6 +1955,9 @@
                         },
                         {
                             "$ref": "#/$customEncoding/node"
+                        },
+                        {
+                            "$ref": "#/$customEncoding/lengthOf"
                         }
                     ]
                 },
