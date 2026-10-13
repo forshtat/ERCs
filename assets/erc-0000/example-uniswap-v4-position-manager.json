@@ -51,6 +51,7 @@
                     },
                     {
                         "path": "unlockData.params.[]",
+                        "label": "Action",
                         "switch": {
                             "expression": { "path": "unlockData.actions.[$index]" },
                             "cases": {
@@ -77,6 +78,8 @@
                                     }
                                 },
                                 "0x02": {
+                                    "intent": "Mint position",
+                                    "interpolatedIntent": "Mint a position with up to {amount0Max} and {amount1Max}",
                                     "customEncoding": {
                                         "type": "abi",
                                         "entries": [
@@ -87,7 +90,7 @@
                                                     "entries": [
                                                         { "name": "currency0", "schema": { "type": "address" }, "label": "Token 0", "format": "addressName" },
                                                         { "name": "currency1", "schema": { "type": "address" }, "label": "Token 1", "format": "addressName" },
-                                                        { "name": "fee", "schema": { "type": "uint", "bytes": 3 }, "label": "Fee", "format": "raw" },
+                                                        { "name": "fee", "schema": { "type": "uint", "bytes": 3 }, "label": "Fee", "format": "unit", "params": { "base": "%", "decimals": 4 } },
                                                         { "name": "tickSpacing", "schema": { "type": "int", "bytes": 3 } },
                                                         { "name": "hooks", "schema": { "type": "address" }, "label": "Hooks", "format": "addressName" }
                                                     ]
@@ -110,7 +113,7 @@
                                                 "format": "tokenAmount",
                                                 "params": { "tokenPath": "~.poolKey.currency1", "nativeCurrencyAddress": "0x0000000000000000000000000000000000000000" }
                                             },
-                                            { "name": "owner", "schema": { "type": "address" }, "label": "Position owner", "format": "addressName" },
+                                            { "name": "owner", "schema": { "type": "address" }, "label": "Position owner", "format": "addressName", "params": { "senderAddress": "0x0000000000000000000000000000000000000001" } },
                                             { "name": "hookData", "schema": { "type": "bytes" } }
                                         ]
                                     }
@@ -140,7 +143,7 @@
                                         "fields": [
                                             { "path": "currency0", "label": "Token 0", "format": "addressName" },
                                             { "path": "currency1", "label": "Token 1", "format": "addressName" },
-                                            { "path": "recipient", "label": "Recipient", "format": "addressName" }
+                                            { "path": "recipient", "label": "Recipient", "format": "addressName", "params": { "senderAddress": "0x0000000000000000000000000000000000000001" } }
                                         ]
                                     }
                                 },
@@ -157,7 +160,7 @@
                                         "intent": "Return leftover tokens",
                                         "fields": [
                                             { "path": "currency", "label": "Token", "format": "addressName" },
-                                            { "path": "to", "label": "Recipient", "format": "addressName" }
+                                            { "path": "to", "label": "Recipient", "format": "addressName", "params": { "senderAddress": "0x0000000000000000000000000000000000000001" } }
                                         ]
                                     }
                                 },

@@ -1,0 +1,624 @@
+{
+    "$schema": "https://eips.ethereum.org/assets/eip-7730/erc7730-non-abi-dispatch.schema.json",
+    "context": {
+        "$id": "Odos Router V2",
+        "contract": {
+            "deployments": [
+                {
+                    "chainId": 1,
+                    "address": "0xCf5540fFFCdC3d510B18bFcA6d2b9987b0772559"
+                }
+            ]
+        }
+    },
+    "metadata": {
+        "owner": "Odos",
+        "contractName": "OdosRouterV2",
+        "info": {
+            "url": "https://github.com/odos-xyz/odos-router-v2"
+        }
+    },
+    "display": {
+        "formats": {
+            "swapCompact()": {
+                "$id": "Odos Compact Swap",
+                "intent": "Swap",
+                "fields": [
+                    {
+                        "path": "@.data",
+                        "customEncoding": {
+                            "type": "object",
+                            "entries": [
+                                {
+                                    "name": "inputToken",
+                                    "schema": {
+                                        "type": "switch",
+                                        "valueType": "address",
+                                        "expression": {
+                                            "type": "uint",
+                                            "bytes": 2
+                                        },
+                                        "cases": {
+                                            "0x0000": {
+                                                "value": "0x0000000000000000000000000000000000000000"
+                                            },
+                                            "0x0001": {
+                                                "customEncoding": {
+                                                    "type": "address"
+                                                }
+                                            },
+                                            "$default": "reject"
+                                        }
+                                    },
+                                    "offset": 4
+                                },
+                                {
+                                    "name": "outputToken",
+                                    "schema": {
+                                        "type": "switch",
+                                        "valueType": "address",
+                                        "expression": {
+                                            "type": "uint",
+                                            "bytes": 2
+                                        },
+                                        "cases": {
+                                            "0x0000": {
+                                                "value": "0x0000000000000000000000000000000000000000"
+                                            },
+                                            "0x0001": {
+                                                "customEncoding": {
+                                                    "type": "address"
+                                                }
+                                            },
+                                            "$default": "reject"
+                                        }
+                                    }
+                                },
+                                {
+                                    "name": "inputAmountLength",
+                                    "schema": {
+                                        "type": "uint",
+                                        "bytes": 1
+                                    }
+                                },
+                                {
+                                    "name": "inputAmount",
+                                    "schema": {
+                                        "type": "switch",
+                                        "valueType": "uint",
+                                        "expression": {
+                                            "path": "~.inputAmountLength"
+                                        },
+                                        "cases": {
+                                            "0x00": "reject",
+                                            "0x01": {
+                                                "customEncoding": {
+                                                    "type": "uint",
+                                                    "bytes": 1
+                                                }
+                                            },
+                                            "0x02": {
+                                                "customEncoding": {
+                                                    "type": "uint",
+                                                    "bytes": 2
+                                                }
+                                            },
+                                            "0x03": {
+                                                "customEncoding": {
+                                                    "type": "uint",
+                                                    "bytes": 3
+                                                }
+                                            },
+                                            "0x04": {
+                                                "customEncoding": {
+                                                    "type": "uint",
+                                                    "bytes": 4
+                                                }
+                                            },
+                                            "0x05": {
+                                                "customEncoding": {
+                                                    "type": "uint",
+                                                    "bytes": 5
+                                                }
+                                            },
+                                            "0x06": {
+                                                "customEncoding": {
+                                                    "type": "uint",
+                                                    "bytes": 6
+                                                }
+                                            },
+                                            "0x07": {
+                                                "customEncoding": {
+                                                    "type": "uint",
+                                                    "bytes": 7
+                                                }
+                                            },
+                                            "0x08": {
+                                                "customEncoding": {
+                                                    "type": "uint",
+                                                    "bytes": 8
+                                                }
+                                            },
+                                            "0x09": {
+                                                "customEncoding": {
+                                                    "type": "uint",
+                                                    "bytes": 9
+                                                }
+                                            },
+                                            "0x0a": {
+                                                "customEncoding": {
+                                                    "type": "uint",
+                                                    "bytes": 10
+                                                }
+                                            },
+                                            "0x0b": {
+                                                "customEncoding": {
+                                                    "type": "uint",
+                                                    "bytes": 11
+                                                }
+                                            },
+                                            "0x0c": {
+                                                "customEncoding": {
+                                                    "type": "uint",
+                                                    "bytes": 12
+                                                }
+                                            },
+                                            "0x0d": {
+                                                "customEncoding": {
+                                                    "type": "uint",
+                                                    "bytes": 13
+                                                }
+                                            },
+                                            "0x0e": {
+                                                "customEncoding": {
+                                                    "type": "uint",
+                                                    "bytes": 14
+                                                }
+                                            },
+                                            "0x0f": {
+                                                "customEncoding": {
+                                                    "type": "uint",
+                                                    "bytes": 15
+                                                }
+                                            },
+                                            "0x10": {
+                                                "customEncoding": {
+                                                    "type": "uint",
+                                                    "bytes": 16
+                                                }
+                                            },
+                                            "0x11": {
+                                                "customEncoding": {
+                                                    "type": "uint",
+                                                    "bytes": 17
+                                                }
+                                            },
+                                            "0x12": {
+                                                "customEncoding": {
+                                                    "type": "uint",
+                                                    "bytes": 18
+                                                }
+                                            },
+                                            "0x13": {
+                                                "customEncoding": {
+                                                    "type": "uint",
+                                                    "bytes": 19
+                                                }
+                                            },
+                                            "0x14": {
+                                                "customEncoding": {
+                                                    "type": "uint",
+                                                    "bytes": 20
+                                                }
+                                            },
+                                            "0x15": {
+                                                "customEncoding": {
+                                                    "type": "uint",
+                                                    "bytes": 21
+                                                }
+                                            },
+                                            "0x16": {
+                                                "customEncoding": {
+                                                    "type": "uint",
+                                                    "bytes": 22
+                                                }
+                                            },
+                                            "0x17": {
+                                                "customEncoding": {
+                                                    "type": "uint",
+                                                    "bytes": 23
+                                                }
+                                            },
+                                            "0x18": {
+                                                "customEncoding": {
+                                                    "type": "uint",
+                                                    "bytes": 24
+                                                }
+                                            },
+                                            "0x19": {
+                                                "customEncoding": {
+                                                    "type": "uint",
+                                                    "bytes": 25
+                                                }
+                                            },
+                                            "0x1a": {
+                                                "customEncoding": {
+                                                    "type": "uint",
+                                                    "bytes": 26
+                                                }
+                                            },
+                                            "0x1b": {
+                                                "customEncoding": {
+                                                    "type": "uint",
+                                                    "bytes": 27
+                                                }
+                                            },
+                                            "0x1c": {
+                                                "customEncoding": {
+                                                    "type": "uint",
+                                                    "bytes": 28
+                                                }
+                                            },
+                                            "0x1d": {
+                                                "customEncoding": {
+                                                    "type": "uint",
+                                                    "bytes": 29
+                                                }
+                                            },
+                                            "0x1e": {
+                                                "customEncoding": {
+                                                    "type": "uint",
+                                                    "bytes": 30
+                                                }
+                                            },
+                                            "0x1f": {
+                                                "customEncoding": {
+                                                    "type": "uint",
+                                                    "bytes": 31
+                                                }
+                                            },
+                                            "0x20": {
+                                                "customEncoding": {
+                                                    "type": "uint",
+                                                    "bytes": 32
+                                                }
+                                            }
+                                        }
+                                    },
+                                    "label": "Amount in",
+                                    "format": "tokenAmount",
+                                    "params": {
+                                        "tokenPath": "~.inputToken",
+                                        "nativeCurrencyAddress": "0x0000000000000000000000000000000000000000"
+                                    }
+                                },
+                                {
+                                    "name": "quoteLength",
+                                    "schema": {
+                                        "type": "uint",
+                                        "bytes": 1
+                                    }
+                                },
+                                {
+                                    "name": "outputQuote",
+                                    "schema": {
+                                        "type": "switch",
+                                        "valueType": "uint",
+                                        "expression": {
+                                            "path": "~.quoteLength"
+                                        },
+                                        "cases": {
+                                            "0x00": "reject",
+                                            "0x01": {
+                                                "customEncoding": {
+                                                    "type": "uint",
+                                                    "bytes": 1
+                                                }
+                                            },
+                                            "0x02": {
+                                                "customEncoding": {
+                                                    "type": "uint",
+                                                    "bytes": 2
+                                                }
+                                            },
+                                            "0x03": {
+                                                "customEncoding": {
+                                                    "type": "uint",
+                                                    "bytes": 3
+                                                }
+                                            },
+                                            "0x04": {
+                                                "customEncoding": {
+                                                    "type": "uint",
+                                                    "bytes": 4
+                                                }
+                                            },
+                                            "0x05": {
+                                                "customEncoding": {
+                                                    "type": "uint",
+                                                    "bytes": 5
+                                                }
+                                            },
+                                            "0x06": {
+                                                "customEncoding": {
+                                                    "type": "uint",
+                                                    "bytes": 6
+                                                }
+                                            },
+                                            "0x07": {
+                                                "customEncoding": {
+                                                    "type": "uint",
+                                                    "bytes": 7
+                                                }
+                                            },
+                                            "0x08": {
+                                                "customEncoding": {
+                                                    "type": "uint",
+                                                    "bytes": 8
+                                                }
+                                            },
+                                            "0x09": {
+                                                "customEncoding": {
+                                                    "type": "uint",
+                                                    "bytes": 9
+                                                }
+                                            },
+                                            "0x0a": {
+                                                "customEncoding": {
+                                                    "type": "uint",
+                                                    "bytes": 10
+                                                }
+                                            },
+                                            "0x0b": {
+                                                "customEncoding": {
+                                                    "type": "uint",
+                                                    "bytes": 11
+                                                }
+                                            },
+                                            "0x0c": {
+                                                "customEncoding": {
+                                                    "type": "uint",
+                                                    "bytes": 12
+                                                }
+                                            },
+                                            "0x0d": {
+                                                "customEncoding": {
+                                                    "type": "uint",
+                                                    "bytes": 13
+                                                }
+                                            },
+                                            "0x0e": {
+                                                "customEncoding": {
+                                                    "type": "uint",
+                                                    "bytes": 14
+                                                }
+                                            },
+                                            "0x0f": {
+                                                "customEncoding": {
+                                                    "type": "uint",
+                                                    "bytes": 15
+                                                }
+                                            },
+                                            "0x10": {
+                                                "customEncoding": {
+                                                    "type": "uint",
+                                                    "bytes": 16
+                                                }
+                                            },
+                                            "0x11": {
+                                                "customEncoding": {
+                                                    "type": "uint",
+                                                    "bytes": 17
+                                                }
+                                            },
+                                            "0x12": {
+                                                "customEncoding": {
+                                                    "type": "uint",
+                                                    "bytes": 18
+                                                }
+                                            },
+                                            "0x13": {
+                                                "customEncoding": {
+                                                    "type": "uint",
+                                                    "bytes": 19
+                                                }
+                                            },
+                                            "0x14": {
+                                                "customEncoding": {
+                                                    "type": "uint",
+                                                    "bytes": 20
+                                                }
+                                            },
+                                            "0x15": {
+                                                "customEncoding": {
+                                                    "type": "uint",
+                                                    "bytes": 21
+                                                }
+                                            },
+                                            "0x16": {
+                                                "customEncoding": {
+                                                    "type": "uint",
+                                                    "bytes": 22
+                                                }
+                                            },
+                                            "0x17": {
+                                                "customEncoding": {
+                                                    "type": "uint",
+                                                    "bytes": 23
+                                                }
+                                            },
+                                            "0x18": {
+                                                "customEncoding": {
+                                                    "type": "uint",
+                                                    "bytes": 24
+                                                }
+                                            },
+                                            "0x19": {
+                                                "customEncoding": {
+                                                    "type": "uint",
+                                                    "bytes": 25
+                                                }
+                                            },
+                                            "0x1a": {
+                                                "customEncoding": {
+                                                    "type": "uint",
+                                                    "bytes": 26
+                                                }
+                                            },
+                                            "0x1b": {
+                                                "customEncoding": {
+                                                    "type": "uint",
+                                                    "bytes": 27
+                                                }
+                                            },
+                                            "0x1c": {
+                                                "customEncoding": {
+                                                    "type": "uint",
+                                                    "bytes": 28
+                                                }
+                                            },
+                                            "0x1d": {
+                                                "customEncoding": {
+                                                    "type": "uint",
+                                                    "bytes": 29
+                                                }
+                                            },
+                                            "0x1e": {
+                                                "customEncoding": {
+                                                    "type": "uint",
+                                                    "bytes": 30
+                                                }
+                                            },
+                                            "0x1f": {
+                                                "customEncoding": {
+                                                    "type": "uint",
+                                                    "bytes": 31
+                                                }
+                                            },
+                                            "0x20": {
+                                                "customEncoding": {
+                                                    "type": "uint",
+                                                    "bytes": 32
+                                                }
+                                            }
+                                        }
+                                    },
+                                    "label": "Quoted amount out",
+                                    "format": "tokenAmount",
+                                    "params": {
+                                        "tokenPath": "~.outputToken",
+                                        "nativeCurrencyAddress": "0x0000000000000000000000000000000000000000"
+                                    }
+                                },
+                                {
+                                    "name": "slippageTolerance",
+                                    "schema": {
+                                        "type": "uint",
+                                        "bytes": 3
+                                    },
+                                    "label": "Slippage tolerance (in units of 1/16777215 of the quote)",
+                                    "format": "raw"
+                                },
+                                {
+                                    "name": "executor",
+                                    "schema": {
+                                        "type": "switch",
+                                        "valueType": "address",
+                                        "expression": {
+                                            "type": "uint",
+                                            "bytes": 2
+                                        },
+                                        "cases": {
+                                            "0x0000": {
+                                                "value": "0x0000000000000000000000000000000000000000"
+                                            },
+                                            "0x0001": {
+                                                "customEncoding": {
+                                                    "type": "address"
+                                                }
+                                            },
+                                            "$default": "reject"
+                                        }
+                                    },
+                                    "label": "Executor",
+                                    "format": "addressName"
+                                },
+                                {
+                                    "name": "inputReceiver",
+                                    "schema": {
+                                        "type": "switch",
+                                        "valueType": "address",
+                                        "expression": {
+                                            "type": "uint",
+                                            "bytes": 2
+                                        },
+                                        "cases": {
+                                            "0x0000": {
+                                                "valueFrom": "~.executor"
+                                            },
+                                            "0x0001": {
+                                                "customEncoding": {
+                                                    "type": "address"
+                                                }
+                                            },
+                                            "$default": "reject"
+                                        }
+                                    },
+                                    "label": "Input sent to",
+                                    "format": "addressName"
+                                },
+                                {
+                                    "name": "outputReceiver",
+                                    "schema": {
+                                        "type": "switch",
+                                        "valueType": "address",
+                                        "expression": {
+                                            "type": "uint",
+                                            "bytes": 2
+                                        },
+                                        "cases": {
+                                            "0x0000": {
+                                                "valueFrom": "@.from"
+                                            },
+                                            "0x0001": {
+                                                "customEncoding": {
+                                                    "type": "address"
+                                                }
+                                            },
+                                            "$default": "reject"
+                                        }
+                                    },
+                                    "label": "Recipient",
+                                    "format": "addressName"
+                                },
+                                {
+                                    "name": "referralCode",
+                                    "schema": {
+                                        "type": "uint",
+                                        "bytes": 4
+                                    },
+                                    "label": "Referral code",
+                                    "format": "raw"
+                                },
+                                {
+                                    "name": "pathLength",
+                                    "schema": {
+                                        "type": "uint",
+                                        "bytes": 1
+                                    }
+                                },
+                                {
+                                    "name": "pathDefinition",
+                                    "schema": {
+                                        "type": "bytes",
+                                        "toEnd": true
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                ]
+            }
+        }
+    }
+}
