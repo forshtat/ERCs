@@ -1401,6 +1401,9 @@
                     "$ref": "#/$customEncoding/uint"
                 },
                 {
+                    "$ref": "#/$customEncoding/int"
+                },
+                {
                     "$ref": "#/$customEncoding/bytes"
                 },
                 {
@@ -1423,6 +1426,163 @@
                 },
                 {
                     "$ref": "#/$customEncoding/switchNode"
+                },
+                {
+                    "$ref": "#/$customEncoding/abi"
+                }
+            ]
+        },
+        "abi": {
+            "title": "Standard ABI-encoded values, decoded as abi.decode(buffer, (T1, ..., Tn)) with the types of the entries; as an entry's schema, a tuple",
+            "type": "object",
+            "properties": {
+                "type": {
+                    "const": "abi"
+                },
+                "entries": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "name": {
+                                "type": "string",
+                                "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+                            },
+                            "schema": {
+                                "$ref": "#/$customEncoding/abiType"
+                            },
+                            "visible": {
+                                "$ref": "#/$format/rules"
+                            },
+                            "label": {
+                                "type": "string"
+                            },
+                            "format": {
+                                "$ref": "#/$format/names"
+                            },
+                            "params": {
+                                "type": "object"
+                            }
+                        },
+                        "required": [
+                            "name",
+                            "schema"
+                        ],
+                        "additionalProperties": false
+                    }
+                }
+            },
+            "required": [
+                "type",
+                "entries"
+            ],
+            "additionalProperties": false
+        },
+        "abiType": {
+            "title": "The type of an abi entry or array element",
+            "oneOf": [
+                {
+                    "$ref": "#/$customEncoding/address"
+                },
+                {
+                    "$ref": "#/$customEncoding/bool"
+                },
+                {
+                    "title": "uintN, with N = 8 * bytes",
+                    "type": "object",
+                    "properties": {
+                        "type": {
+                            "const": "uint"
+                        },
+                        "bytes": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 32
+                        }
+                    },
+                    "required": [
+                        "type",
+                        "bytes"
+                    ],
+                    "additionalProperties": false
+                },
+                {
+                    "title": "intN, with N = 8 * bytes",
+                    "type": "object",
+                    "properties": {
+                        "type": {
+                            "const": "int"
+                        },
+                        "bytes": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 32
+                        }
+                    },
+                    "required": [
+                        "type",
+                        "bytes"
+                    ],
+                    "additionalProperties": false
+                },
+                {
+                    "title": "bytesN with length N, or dynamic bytes without length",
+                    "type": "object",
+                    "properties": {
+                        "type": {
+                            "const": "bytes"
+                        },
+                        "length": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 32
+                        },
+                        "customEncoding": {
+                            "description": "Decodes the contents of these bytes as their own buffer. The nested node MUST consume all of them.",
+                            "$ref": "#/$customEncoding/node"
+                        }
+                    },
+                    "required": [
+                        "type"
+                    ],
+                    "additionalProperties": false
+                },
+                {
+                    "title": "string",
+                    "type": "object",
+                    "properties": {
+                        "type": {
+                            "const": "string"
+                        }
+                    },
+                    "required": [
+                        "type"
+                    ],
+                    "additionalProperties": false
+                },
+                {
+                    "title": "T[N] with count N, or T[] without count",
+                    "type": "object",
+                    "properties": {
+                        "type": {
+                            "const": "array"
+                        },
+                        "element": {
+                            "$ref": "#/$customEncoding/abiType"
+                        },
+                        "count": {
+                            "type": "integer",
+                            "minimum": 1
+                        }
+                    },
+                    "required": [
+                        "type",
+                        "element"
+                    ],
+                    "additionalProperties": false
+                },
+                {
+                    "$ref": "#/$customEncoding/abi"
                 }
             ]
         },
@@ -1446,6 +1606,31 @@
                 "mask": {
                     "type": "string",
                     "pattern": "^0x[0-9a-fA-F]+$|^0b[01]+$"
+                }
+            },
+            "required": [
+                "type",
+                "bytes"
+            ],
+            "additionalProperties": false
+        },
+        "int": {
+            "title": "Two's complement signed integer of the given width",
+            "type": "object",
+            "properties": {
+                "type": {
+                    "const": "int"
+                },
+                "bytes": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 32
+                },
+                "endian": {
+                    "enum": [
+                        "be",
+                        "le"
+                    ]
                 }
             },
             "required": [
