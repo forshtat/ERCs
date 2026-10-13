@@ -1767,6 +1767,9 @@
                         },
                         {
                             "$ref": "#/$customEncoding/lengthOf"
+                        },
+                        {
+                            "$ref": "#/$customEncoding/pathExpression"
                         }
                     ]
                 },
@@ -1824,6 +1827,23 @@
             "required": [
                 "expression",
                 "cases"
+            ],
+            "additionalProperties": false
+        },
+        "pathExpression": {
+            "title": "switch expression reading an already-decoded value at a path, consuming no bytes",
+            "type": "object",
+            "properties": {
+                "path": {
+                    "type": "string"
+                },
+                "mask": {
+                    "type": "string",
+                    "pattern": "^0x[0-9a-fA-F]+$|^0b[01]+$"
+                }
+            },
+            "required": [
+                "path"
             ],
             "additionalProperties": false
         },

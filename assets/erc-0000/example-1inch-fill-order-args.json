@@ -1,0 +1,167 @@
+{
+    "$schema": "https://eips.ethereum.org/assets/eip-7730/erc7730-non-abi-dispatch.schema.json",
+    "context": {
+        "$id": "1inch Limit Order Protocol v4",
+        "contract": {
+            "deployments": [
+                {
+                    "chainId": 1,
+                    "address": "0x111111125421cA6dc452d289314280a0f8842A65"
+                }
+            ]
+        }
+    },
+    "metadata": {
+        "owner": "1inch",
+        "contractName": "AggregationRouterV6",
+        "info": {
+            "url": "https://github.com/1inch/limit-order-protocol/tree/4.0.0"
+        }
+    },
+    "display": {
+        "formats": {
+            "fillOrderArgs((uint256 salt,uint256 maker,uint256 receiver,uint256 makerAsset,uint256 takerAsset,uint256 makingAmount,uint256 takingAmount,uint256 makerTraits) order,bytes32 r,bytes32 vs,uint256 amount,uint256 takerTraits,bytes args)": {
+                "$id": "Fill Order",
+                "intent": "Fill limit order",
+                "fields": [
+                    {
+                        "path": "order.maker",
+                        "customEncoding": {
+                            "type": "object",
+                            "entries": [
+                                {
+                                    "name": "account",
+                                    "offset": 12,
+                                    "schema": { "type": "address" },
+                                    "label": "Maker",
+                                    "format": "addressName"
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        "path": "order.makerAsset",
+                        "customEncoding": {
+                            "type": "object",
+                            "entries": [
+                                {
+                                    "name": "token",
+                                    "offset": 12,
+                                    "schema": { "type": "address" },
+                                    "label": "You receive",
+                                    "format": "addressName"
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        "path": "order.takerAsset",
+                        "customEncoding": {
+                            "type": "object",
+                            "entries": [
+                                {
+                                    "name": "token",
+                                    "offset": 12,
+                                    "schema": { "type": "address" },
+                                    "label": "You pay",
+                                    "format": "addressName"
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        "path": "order.makingAmount",
+                        "label": "Order offers",
+                        "format": "tokenAmount",
+                        "params": { "tokenPath": "order.makerAsset.token" }
+                    },
+                    {
+                        "path": "order.takingAmount",
+                        "label": "Order asks",
+                        "format": "tokenAmount",
+                        "params": { "tokenPath": "order.takerAsset.token" }
+                    },
+                    {
+                        "path": "takerTraits",
+                        "customEncoding": {
+                            "type": "bitfield",
+                            "bytes": 32,
+                            "bitranges": [
+                                { "name": "extensionLength", "bits": [247, 224] },
+                                { "name": "interactionLength", "bits": [223, 200] },
+                                { "name": "threshold", "bits": [183, 0] }
+                            ]
+                        }
+                    },
+                    {
+                        "path": "amount",
+                        "label": "Fill amount",
+                        "switch": {
+                            "expression": { "path": "takerTraits", "mask": "0x8000000000000000000000000000000000000000000000000000000000000000" },
+                            "cases": {
+                                "0x0000000000000000000000000000000000000000000000000000000000000000": {
+                                    "format": "tokenAmount",
+                                    "params": { "tokenPath": "order.takerAsset.token" }
+                                },
+                                "$default": {
+                                    "format": "tokenAmount",
+                                    "params": { "tokenPath": "order.makerAsset.token" }
+                                }
+                            }
+                        }
+                    },
+                    {
+                        "path": "takerTraits.threshold",
+                        "label": "Slippage limit",
+                        "switch": {
+                            "expression": { "path": "takerTraits", "mask": "0x8000000000000000000000000000000000000000000000000000000000000000" },
+                            "cases": {
+                                "0x0000000000000000000000000000000000000000000000000000000000000000": {
+                                    "format": "tokenAmount",
+                                    "params": { "tokenPath": "order.makerAsset.token" }
+                                },
+                                "$default": {
+                                    "format": "tokenAmount",
+                                    "params": { "tokenPath": "order.takerAsset.token" }
+                                }
+                            }
+                        }
+                    },
+                    {
+                        "path": "args",
+                        "label": "Recipient",
+                        "switch": {
+                            "expression": { "path": "takerTraits", "mask": "0x0800000000000000000000000000000000000000000000000000000000000000" },
+                            "cases": {
+                                "0x0000000000000000000000000000000000000000000000000000000000000000": {
+                                    "label": "Transaction sender"
+                                },
+                                "$default": {
+                                    "customEncoding": {
+                                        "type": "object",
+                                        "entries": [
+                                            {
+                                                "name": "target",
+                                                "schema": { "type": "address" },
+                                                "label": "Recipient",
+                                                "format": "addressName"
+                                            },
+                                            {
+                                                "name": "extension",
+                                                "schema": { "type": "bytes", "lengthFrom": "#.takerTraits.extensionLength" }
+                                            },
+                                            {
+                                                "name": "interaction",
+                                                "schema": { "type": "bytes", "lengthFrom": "#.takerTraits.interactionLength" }
+                                            }
+                                        ]
+                                    }
+                                }
+                            }
+                        }
+                    }
+                ]
+            }
+        }
+    }
+}
