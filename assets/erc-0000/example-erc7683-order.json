@@ -47,10 +47,10 @@
                                             { "path": "orderData.inputToken", "label": "Input token", "format": "addressName" },
                                             { "path": "orderData.inputAmount", "label": "Input amount", "format": "tokenAmount", "params": { "tokenPath": "orderData.inputToken" } },
                                             { "path": "orderData.outputToken", "label": "Output token", "format": "addressName" },
-                                            { "path": "orderData.outputAmount", "label": "Output amount", "format": "tokenAmount", "params": { "tokenPath": "orderData.outputToken" } },
+                                            { "path": "orderData.outputAmount", "label": "Output amount", "format": "tokenAmount", "params": { "tokenPath": "orderData.outputToken", "chainIdPath": "orderData.destinationChainId" } },
                                             { "path": "orderData.destinationChainId", "label": "Destination chain", "format": "chainId" },
                                             { "path": "orderData.recipient", "label": "Recipient" },
-                                            { "path": "orderData.exclusiveRelayer", "label": "Exclusive relayer", "format": "addressName" }
+                                            { "path": "orderData.exclusiveRelayer", "label": "Exclusive relayer", "format": "addressName", "visible": { "ifNotIn": ["0x0000000000000000000000000000000000000000"] } }
                                         ]
                                     }
                                 },

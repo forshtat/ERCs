@@ -3,12 +3,15 @@
     "context": {
         "$id": "Zodiac Roles v2",
         "contract": {
-            "deployments": [
-                {
-                    "chainId": 1,
-                    "address": "0x9646fDAD06d3e24444381f44362a3B0eB343D337"
-                }
-            ]
+            "factory": {
+                "deployEvent": "event ModuleProxyCreation(address indexed proxy, address indexed masterCopy)",
+                "deployments": [
+                    {
+                        "chainId": 1,
+                        "address": "0x000000000000aDdB49795b0f9bA5BC298cDda236"
+                    }
+                ]
+            }
         }
     },
     "metadata": {
@@ -28,7 +31,10 @@
                     {
                         "path": "roleKey",
                         "label": "Role",
-                        "customEncoding": { "type": "string", "length": 32 }
+                        "customEncoding": {
+                            "type": "string",
+                            "length": 32
+                        }
                     },
                     {
                         "path": "targetAddress",

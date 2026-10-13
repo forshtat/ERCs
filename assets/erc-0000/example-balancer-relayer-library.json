@@ -20,9 +20,9 @@
     },
     "display": {
         "formats": {
-            "setRelayerApproval(address relayer,bool approved,bytes authorization)": {
+            "setRelayerApproval(address relayer,bool approved,bytes authorisation)": {
                 "$id": "Balancer Relayer Approval",
-                "intent": "Allow relayer to act on your behalf",
+                "intent": "Set relayer approval",
                 "fields": [
                     {
                         "path": "relayer",
@@ -35,23 +35,27 @@
                         "format": "raw"
                     },
                     {
-                        "path": "authorization",
-                        "label": "Signed authorization",
+                        "path": "authorisation",
                         "customEncoding": {
-                            "type": "object",
+                            "type": "abi",
                             "entries": [
                                 {
                                     "name": "deadline",
                                     "schema": {
                                         "type": "uint",
                                         "bytes": 32
+                                    },
+                                    "label": "Signature valid until",
+                                    "format": "date",
+                                    "params": {
+                                        "encoding": "timestamp"
                                     }
                                 },
                                 {
                                     "name": "v",
                                     "schema": {
                                         "type": "uint",
-                                        "bytes": 32
+                                        "bytes": 1
                                     }
                                 },
                                 {
@@ -70,24 +74,15 @@
                                 }
                             ]
                         }
-                    },
-                    {
-                        "path": "authorization.deadline",
-                        "label": "Valid until",
-                        "format": "date",
-                        "params": {
-                            "encoding": "timestamp"
-                        }
                     }
                 ]
             },
-            "joinPool(bytes32 poolId,uint8 kind,address sender,address recipient,(address[],uint256[],bytes,bool) request,uint256 value,uint256 outputReference)": {
+            "joinPool(bytes32 poolId,uint8 kind,address sender,address recipient,(address[] assets,uint256[] maxAmountsIn,bytes userData,bool fromInternalBalance) request,uint256 value,uint256 outputReference)": {
                 "$id": "Balancer Relayer Join Pool",
                 "intent": "Add liquidity",
                 "fields": [
                     {
                         "path": "poolId",
-                        "label": "Pool",
                         "customEncoding": {
                             "type": "object",
                             "entries": [
@@ -95,7 +90,9 @@
                                     "name": "poolAddress",
                                     "schema": {
                                         "type": "address"
-                                    }
+                                    },
+                                    "label": "Pool",
+                                    "format": "addressName"
                                 },
                                 {
                                     "name": "specialization",
@@ -115,11 +112,6 @@
                         }
                     },
                     {
-                        "path": "poolId.poolAddress",
-                        "label": "Pool",
-                        "format": "addressName"
-                    },
-                    {
                         "path": "sender",
                         "label": "From",
                         "format": "addressName"
@@ -130,16 +122,8 @@
                         "format": "addressName"
                     },
                     {
-                        "path": "request.maxAmountsIn[]",
-                        "label": "Maximum amount in",
-                        "format": "tokenAmount",
-                        "params": {
-                            "tokenPath": "request.assets[]"
-                        }
-                    },
-                    {
                         "path": "request.userData",
-                        "label": "Join details",
+                        "label": "Join",
                         "switch": {
                             "expression": {
                                 "path": "kind"
@@ -148,25 +132,16 @@
                                 "0x00": {
                                     "switch": {
                                         "expression": {
-                                            "type": "uint",
-                                            "bytes": 32
+                                            "path": "request.userData.[0:32]"
                                         },
                                         "cases": {
                                             "0x01": {
                                                 "(uint8 joinKind,uint256[] amountsIn,uint256 minBptAmountOut)": {
-                                                    "intent": "Add liquidity for exact tokens",
+                                                    "intent": "Add exact tokens",
                                                     "fields": [
                                                         {
-                                                            "path": "amountsIn[]",
+                                                            "path": "amountsIn.[]",
                                                             "label": "Amount in",
-                                                            "format": "tokenAmount",
-                                                            "params": {
-                                                                "tokenPath": "#.request.assets[]"
-                                                            }
-                                                        },
-                                                        {
-                                                            "path": "minBptAmountOut",
-                                                            "label": "Minimum pool tokens out",
                                                             "customEncoding": {
                                                                 "type": "switch",
                                                                 "expression": {
@@ -176,16 +151,24 @@
                                                                 },
                                                                 "cases": {
                                                                     "0xba10000000000000000000000000000000000000000000000000000000000000": {
-                                                                        "label": "Dynamic value \u2014 set by an earlier step in this transaction, not known yet",
-                                                                        "intent": "warning"
+                                                                        "label": "Set by an earlier step in this transaction"
                                                                     },
                                                                     "$default": {
                                                                         "format": "tokenAmount",
                                                                         "params": {
-                                                                            "tokenPath": "#.poolId.poolAddress"
+                                                                            "tokenPath": "#.request.assets.[]",
+                                                                            "nativeCurrencyAddress": "0x0000000000000000000000000000000000000000"
                                                                         }
                                                                     }
                                                                 }
+                                                            }
+                                                        },
+                                                        {
+                                                            "path": "minBptAmountOut",
+                                                            "label": "Minimum pool tokens out",
+                                                            "format": "tokenAmount",
+                                                            "params": {
+                                                                "tokenPath": "#.poolId.poolAddress"
                                                             }
                                                         }
                                                     ]
@@ -211,7 +194,7 @@
                     },
                     {
                         "path": "outputReference",
-                        "label": "Save result as",
+                        "label": "Pool tokens out",
                         "customEncoding": {
                             "type": "switch",
                             "expression": {
@@ -221,24 +204,22 @@
                             },
                             "cases": {
                                 "0xba10000000000000000000000000000000000000000000000000000000000000": {
-                                    "label": "Stored for use by a later step in this transaction",
-                                    "intent": "info"
+                                    "label": "Saved for a later step in this transaction"
                                 },
                                 "$default": {
-                                    "format": "raw"
+                                    "label": "Not saved"
                                 }
                             }
                         }
                     }
                 ]
             },
-            "exitPool(bytes32 poolId,uint8 kind,address sender,address recipient,(address[],uint256[],bytes,bool) request,(uint256,uint256)[] outputReferences)": {
+            "exitPool(bytes32 poolId,uint8 kind,address sender,address recipient,(address[] assets,uint256[] minAmountsOut,bytes userData,bool toInternalBalance) request,(uint256 index,uint256 key)[] outputReferences)": {
                 "$id": "Balancer Relayer Exit Pool",
                 "intent": "Remove liquidity",
                 "fields": [
                     {
                         "path": "poolId",
-                        "label": "Pool",
                         "customEncoding": {
                             "type": "object",
                             "entries": [
@@ -246,7 +227,9 @@
                                     "name": "poolAddress",
                                     "schema": {
                                         "type": "address"
-                                    }
+                                    },
+                                    "label": "Pool",
+                                    "format": "addressName"
                                 },
                                 {
                                     "name": "specialization",
@@ -266,11 +249,6 @@
                         }
                     },
                     {
-                        "path": "poolId.poolAddress",
-                        "label": "Pool",
-                        "format": "addressName"
-                    },
-                    {
                         "path": "sender",
                         "label": "From",
                         "format": "addressName"
@@ -281,25 +259,25 @@
                         "format": "addressName"
                     },
                     {
-                        "path": "request.minAmountsOut[]",
+                        "path": "request.minAmountsOut.[]",
                         "label": "Minimum amount out",
                         "format": "tokenAmount",
                         "params": {
-                            "tokenPath": "request.assets[]"
+                            "tokenPath": "request.assets.[]",
+                            "nativeCurrencyAddress": "0x0000000000000000000000000000000000000000"
                         }
                     },
                     {
                         "path": "request.userData",
-                        "label": "Exit details",
+                        "label": "Exit",
                         "switch": {
                             "expression": {
-                                "type": "uint",
-                                "bytes": 32
+                                "path": "request.userData.[0:32]"
                             },
                             "cases": {
                                 "0xff": {
                                     "(uint8 exitKind,uint256 bptAmountIn)": {
-                                        "intent": "Exit in Recovery Mode",
+                                        "intent": "Remove liquidity in recovery mode",
                                         "fields": [
                                             {
                                                 "path": "bptAmountIn",
@@ -313,13 +291,13 @@
                                                     },
                                                     "cases": {
                                                         "0xba10000000000000000000000000000000000000000000000000000000000000": {
-                                                            "label": "Dynamic value \u2014 set by an earlier step in this transaction, not known yet",
-                                                            "intent": "warning"
+                                                            "label": "Set by an earlier step in this transaction"
                                                         },
                                                         "$default": {
                                                             "format": "tokenAmount",
                                                             "params": {
-                                                                "tokenPath": "#.poolId.poolAddress"
+                                                                "tokenPath": "#.poolId.poolAddress",
+                                                                "nativeCurrencyAddress": "0x0000000000000000000000000000000000000000"
                                                             }
                                                         }
                                                     }
@@ -337,8 +315,7 @@
                                             "0x00": {
                                                 "switch": {
                                                     "expression": {
-                                                        "type": "uint",
-                                                        "bytes": 32
+                                                        "path": "request.userData.[0:32]"
                                                     },
                                                     "cases": {
                                                         "0x01": {
@@ -357,13 +334,13 @@
                                                                             },
                                                                             "cases": {
                                                                                 "0xba10000000000000000000000000000000000000000000000000000000000000": {
-                                                                                    "label": "Dynamic value \u2014 set by an earlier step in this transaction, not known yet",
-                                                                                    "intent": "warning"
+                                                                                    "label": "Set by an earlier step in this transaction"
                                                                                 },
                                                                                 "$default": {
                                                                                     "format": "tokenAmount",
                                                                                     "params": {
-                                                                                        "tokenPath": "#.poolId.poolAddress"
+                                                                                        "tokenPath": "#.poolId.poolAddress",
+                                                                                        "nativeCurrencyAddress": "0x0000000000000000000000000000000000000000"
                                                                                     }
                                                                                 }
                                                                             }
@@ -379,8 +356,7 @@
                                             "0x03": {
                                                 "switch": {
                                                     "expression": {
-                                                        "type": "uint",
-                                                        "bytes": 32
+                                                        "path": "request.userData.[0:32]"
                                                     },
                                                     "cases": {
                                                         "0x02": {
@@ -399,13 +375,13 @@
                                                                             },
                                                                             "cases": {
                                                                                 "0xba10000000000000000000000000000000000000000000000000000000000000": {
-                                                                                    "label": "Dynamic value \u2014 set by an earlier step in this transaction, not known yet",
-                                                                                    "intent": "warning"
+                                                                                    "label": "Set by an earlier step in this transaction"
                                                                                 },
                                                                                 "$default": {
                                                                                     "format": "tokenAmount",
                                                                                     "params": {
-                                                                                        "tokenPath": "#.poolId.poolAddress"
+                                                                                        "tokenPath": "#.poolId.poolAddress",
+                                                                                        "nativeCurrencyAddress": "0x0000000000000000000000000000000000000000"
                                                                                     }
                                                                                 }
                                                                             }
@@ -418,8 +394,6 @@
                                                     }
                                                 }
                                             },
-                                            "0x01": "reject",
-                                            "0x02": "reject",
                                             "$default": "reject"
                                         }
                                     }
@@ -433,13 +407,13 @@
                         "format": "raw"
                     },
                     {
-                        "path": "outputReferences[].index",
-                        "label": "Token",
+                        "path": "outputReferences.[].index",
+                        "label": "Saved token index",
                         "format": "raw"
                     },
                     {
-                        "path": "outputReferences[].key",
-                        "label": "Save result as",
+                        "path": "outputReferences.[].key",
+                        "label": "Saved as",
                         "customEncoding": {
                             "type": "switch",
                             "expression": {
@@ -449,8 +423,7 @@
                             },
                             "cases": {
                                 "0xba10000000000000000000000000000000000000000000000000000000000000": {
-                                    "label": "Stored for use by a later step in this transaction",
-                                    "intent": "info"
+                                    "label": "Reference for a later step in this transaction"
                                 },
                                 "$default": "reject"
                             }

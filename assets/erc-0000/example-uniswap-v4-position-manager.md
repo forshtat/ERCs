@@ -149,5 +149,5 @@ Calldata:
 Expected display:
 
 ```
-Rejected: value 6 selects a reject case
+Rejected: no case for value 0x06
 ```

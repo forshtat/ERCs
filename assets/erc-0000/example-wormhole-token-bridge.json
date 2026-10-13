@@ -26,7 +26,6 @@
                 "fields": [
                     {
                         "path": "encodedVm",
-                        "label": "Signed message (VAA)",
                         "customEncoding": {
                             "type": "object",
                             "entries": [
@@ -82,7 +81,6 @@
                                 },
                                 {
                                     "name": "payload",
-                                    "label": "Transfer details",
                                     "schema": {
                                         "type": "switch",
                                         "expression": { "type": "uint", "bytes": 1 },
@@ -109,8 +107,10 @@
                                                         },
                                                         {
                                                             "name": "to",
-                                                            "schema": { "type": "bytes", "length": 32 },
-                                                            "label": "Recipient (destination chain address)"
+                                                            "offset": 12,
+                                                            "schema": { "type": "address" },
+                                                            "label": "Recipient",
+                                                            "format": "addressName"
                                                         },
                                                         {
                                                             "name": "toChain",
