@@ -1973,9 +1973,6 @@
                         "bytes"
                     ]
                 },
-                "payloadFrom": {
-                    "type": "string"
-                },
                 "cases": {
                     "type": "object",
                     "propertyNames": { "$ref": "#/$customEncoding/caseKey" }
