@@ -1,0 +1,120 @@
+# TieredExecutor test vectors
+
+Calls to `executeOperation` on the illustrative `TieredExecutor`. The legacy token and reward vault descriptors are known to the wallet.
+
+```solidity
+enum Operation { None, GrantReward, CreditLegacy }
+
+function executeOperation(address target, Operation op, address account, uint256 amount) external;
+```
+
+Descriptor: [`example-tiered-executor.json`](./example-tiered-executor.json)
+
+All vectors are sent by `0x1111111111111111111111111111111111111111` to `0x0000000000000000000000000000000000001001` on Ethereum.
+
+## Grant a reward
+
+Arguments:
+
+```
+target: 0x0000000000000000000000000000000000001003
+op: 1
+account: 0xA11cea11CEA11CEA11cEa11CeA11ceA11CEA11Ce
+amount: 300000000000000000
+```
+
+Calldata:
+
+```
+0x512ccc6700000000000000000000000000000000000000000000000000000000000010030000000000000000000000000000000000000000000000000000000000000001000000000000000000000000a11cea11cea11cea11cea11cea11cea11cea11ce0000000000000000000000000000000000000000000000000429d069189e0000
+```
+
+Expected display:
+
+```
+Intent: Grant 0.3 ETH reward to 0xA11cea11CEA11CEA11cEa11CeA11ceA11CEA11Ce
+Contract: 0x0000000000000000000000000000000000001003
+Recipient: 0xA11cea11CEA11CEA11cEa11CeA11ceA11CEA11Ce
+Amount: 0.3 ETH
+```
+
+## Credit a legacy balance
+
+`creditAccount` takes the arguments in the opposite order.
+
+Arguments:
+
+```
+target: 0x0000000000000000000000000000000000001002
+op: 2
+account: 0xb0bB0bB0Bb0Bb0bB0Bb0bb0bb0bB0BB0Bb0BB0Bb
+amount: 2000000000000000000
+```
+
+Calldata:
+
+```
+0x512ccc6700000000000000000000000000000000000000000000000000000000000010020000000000000000000000000000000000000000000000000000000000000002000000000000000000000000b0bb0bb0bb0bb0bb0bb0bb0bb0bb0bb0bb0bb0bb0000000000000000000000000000000000000000000000001bc16d674ec80000
+```
+
+Expected display:
+
+```
+Intent: Credit 0xb0bB0bB0Bb0Bb0bB0Bb0bb0bb0bB0BB0Bb0BB0Bb with 2 ETH
+Contract: 0x0000000000000000000000000000000000001002
+Amount: 2 ETH
+Recipient: 0xb0bB0bB0Bb0Bb0bB0Bb0bb0bb0bB0BB0Bb0BB0Bb
+```
+
+## Target without a descriptor
+
+The target has no descriptor.
+
+Arguments:
+
+```
+target: 0xA11cea11CEA11CEA11cEa11CeA11ceA11CEA11Ce
+op: 1
+account: 0xb0bB0bB0Bb0Bb0bB0Bb0bb0bb0bB0BB0Bb0BB0Bb
+amount: 1000000000000000000
+```
+
+Calldata:
+
+```
+0x512ccc67000000000000000000000000a11cea11cea11cea11cea11cea11cea11cea11ce0000000000000000000000000000000000000000000000000000000000000001000000000000000000000000b0bb0bb0bb0bb0bb0bb0bb0bb0bb0bb0bb0bb0bb0000000000000000000000000000000000000000000000000de0b6b3a7640000
+```
+
+Expected display:
+
+```
+Intent: Unknown function grantReward(address,uint256)
+Contract: 0xA11cea11CEA11CEA11cEa11CeA11ceA11CEA11Ce
+Argument 1: 0xb0bB0bB0Bb0Bb0bB0Bb0bb0bb0bB0BB0Bb0BB0Bb
+Argument 2: 1000000000000000000
+```
+
+## No operation
+
+`op` 0 (`None`) is rejected.
+
+Arguments:
+
+```
+target: 0x0000000000000000000000000000000000001003
+op: 0
+account: 0xA11cea11CEA11CEA11cEa11CeA11ceA11CEA11Ce
+amount: 1
+```
+
+Calldata:
+
+```
+0x512ccc6700000000000000000000000000000000000000000000000000000000000010030000000000000000000000000000000000000000000000000000000000000000000000000000000000000000a11cea11cea11cea11cea11cea11cea11cea11ce0000000000000000000000000000000000000000000000000000000000000001
+```
+
+Expected display:
+
+```
+Rejected: no case for value 0x00
+```

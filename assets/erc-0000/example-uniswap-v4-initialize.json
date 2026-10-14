@@ -36,8 +36,24 @@
                     },
                     {
                         "path": "key.fee",
-                        "label": "Fee tier",
-                        "format": "raw"
+                        "label": "Fee",
+                        "switch": {
+                            "expression": {
+                                "path": "key.fee"
+                            },
+                            "cases": {
+                                "0x800000": {
+                                    "label": "Dynamic, set by the hooks contract"
+                                },
+                                "$default": {
+                                    "format": "unit",
+                                    "params": {
+                                        "base": "%",
+                                        "decimals": 4
+                                    }
+                                }
+                            }
+                        }
                     },
                     {
                         "path": "key.tickSpacing",
@@ -51,25 +67,167 @@
                     },
                     {
                         "path": "key.hooks",
-                        "label": "Hook permissions",
                         "customEncoding": {
                             "type": "bitfield",
                             "bytes": 20,
                             "bitranges": [
-                                { "name": "beforeInitialize", "bit": 13 },
-                                { "name": "afterInitialize",  "bit": 12 },
-                                { "name": "beforeAddLiquidity",  "bit": 11 },
-                                { "name": "afterAddLiquidity",   "bit": 10 },
-                                { "name": "beforeRemoveLiquidity", "bit": 9 },
-                                { "name": "afterRemoveLiquidity",  "bit": 8 },
-                                { "name": "beforeSwap", "bit": 7 },
-                                { "name": "afterSwap",  "bit": 6 },
-                                { "name": "beforeDonate", "bit": 5 },
-                                { "name": "afterDonate",  "bit": 4 },
-                                { "name": "beforeSwapReturnDelta", "bit": 3 },
-                                { "name": "afterSwapReturnDelta",  "bit": 2 },
-                                { "name": "afterAddLiquidityReturnDelta",    "bit": 1 },
-                                { "name": "afterRemoveLiquidityReturnDelta", "bit": 0 }
+                                {
+                                    "name": "beforeInitialize",
+                                    "bit": 13,
+                                    "label": "Hook before initialize",
+                                    "format": "raw",
+                                    "visible": {
+                                        "ifNotIn": [
+                                            false
+                                        ]
+                                    }
+                                },
+                                {
+                                    "name": "afterInitialize",
+                                    "bit": 12,
+                                    "label": "Hook after initialize",
+                                    "format": "raw",
+                                    "visible": {
+                                        "ifNotIn": [
+                                            false
+                                        ]
+                                    }
+                                },
+                                {
+                                    "name": "beforeAddLiquidity",
+                                    "bit": 11,
+                                    "label": "Hook before add liquidity",
+                                    "format": "raw",
+                                    "visible": {
+                                        "ifNotIn": [
+                                            false
+                                        ]
+                                    }
+                                },
+                                {
+                                    "name": "afterAddLiquidity",
+                                    "bit": 10,
+                                    "label": "Hook after add liquidity",
+                                    "format": "raw",
+                                    "visible": {
+                                        "ifNotIn": [
+                                            false
+                                        ]
+                                    }
+                                },
+                                {
+                                    "name": "beforeRemoveLiquidity",
+                                    "bit": 9,
+                                    "label": "Hook before remove liquidity",
+                                    "format": "raw",
+                                    "visible": {
+                                        "ifNotIn": [
+                                            false
+                                        ]
+                                    }
+                                },
+                                {
+                                    "name": "afterRemoveLiquidity",
+                                    "bit": 8,
+                                    "label": "Hook after remove liquidity",
+                                    "format": "raw",
+                                    "visible": {
+                                        "ifNotIn": [
+                                            false
+                                        ]
+                                    }
+                                },
+                                {
+                                    "name": "beforeSwap",
+                                    "bit": 7,
+                                    "label": "Hook before swap",
+                                    "format": "raw",
+                                    "visible": {
+                                        "ifNotIn": [
+                                            false
+                                        ]
+                                    }
+                                },
+                                {
+                                    "name": "afterSwap",
+                                    "bit": 6,
+                                    "label": "Hook after swap",
+                                    "format": "raw",
+                                    "visible": {
+                                        "ifNotIn": [
+                                            false
+                                        ]
+                                    }
+                                },
+                                {
+                                    "name": "beforeDonate",
+                                    "bit": 5,
+                                    "label": "Hook before donate",
+                                    "format": "raw",
+                                    "visible": {
+                                        "ifNotIn": [
+                                            false
+                                        ]
+                                    }
+                                },
+                                {
+                                    "name": "afterDonate",
+                                    "bit": 4,
+                                    "label": "Hook after donate",
+                                    "format": "raw",
+                                    "visible": {
+                                        "ifNotIn": [
+                                            false
+                                        ]
+                                    }
+                                },
+                                {
+                                    "name": "beforeSwapReturnDelta",
+                                    "bit": 3
+                                },
+                                {
+                                    "name": "afterSwapReturnDelta",
+                                    "bit": 2,
+                                    "label": "Hook after swap returning a delta",
+                                    "format": "raw",
+                                    "visible": {
+                                        "ifNotIn": [
+                                            false
+                                        ]
+                                    }
+                                },
+                                {
+                                    "name": "afterAddLiquidityReturnDelta",
+                                    "bit": 1,
+                                    "label": "Hook after add liquidity returning a delta",
+                                    "format": "raw",
+                                    "visible": {
+                                        "ifNotIn": [
+                                            false
+                                        ]
+                                    }
+                                },
+                                {
+                                    "name": "afterRemoveLiquidityReturnDelta",
+                                    "bit": 0,
+                                    "label": "Hook after remove liquidity returning a delta",
+                                    "format": "raw",
+                                    "visible": {
+                                        "ifNotIn": [
+                                            false
+                                        ]
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        "path": "key.hooks.beforeSwapReturnDelta",
+                        "label": "Hook before swap returning a delta",
+                        "format": "raw",
+                        "visible": {
+                            "ifNotIn": [
+                                false
                             ]
                         }
                     },
