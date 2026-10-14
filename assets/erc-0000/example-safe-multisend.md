@@ -2,6 +2,11 @@
 
 Calls to `multiSend(bytes)` on Safe's MultiSend 1.3.0, made by a Safe through `DELEGATECALL`.
 
+```solidity
+// transactions: packed (uint8 operation, address to, uint256 value, uint256 dataLength, bytes data), repeated
+function multiSend(bytes memory transactions) public payable;
+```
+
 Descriptor: [`example-safe-multisend.json`](./example-safe-multisend.json)
 
 ## Two calls: a USDC transfer and an ETH transfer

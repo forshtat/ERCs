@@ -2,6 +2,10 @@
 
 A direct call to the illustrative contract that `TieredExecutor` routes to.
 
+```solidity
+function grantReward(address to, uint256 amount) external;
+```
+
 Descriptor: [`example-reward-vault.json`](./example-reward-vault.json)
 
 ## Grant a reward

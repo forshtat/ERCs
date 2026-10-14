@@ -2,6 +2,11 @@
 
 Calls to `invoke(bytes32[],bytes[])` on the Compound III `Bulker` on Ethereum.
 
+```solidity
+// data[i]: abi.encode of the arguments of actions[i], without a selector
+function invoke(bytes32[] calldata actions, bytes[] calldata data) external payable;
+```
+
 Descriptor: [`example-compound-bulker.json`](./example-compound-bulker.json)
 
 ## Supply WETH as collateral and borrow USDC

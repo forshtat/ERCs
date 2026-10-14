@@ -2,6 +2,16 @@
 
 Calls to `open((uint32,bytes32,bytes))` on the Across ERC-7683 origin settler on Base.
 
+```solidity
+struct OnchainCrossChainOrder {
+    uint32 fillDeadline;
+    bytes32 orderDataType;
+    bytes orderData;
+}
+
+function open(OnchainCrossChainOrder calldata order) external;
+```
+
 Descriptor: [`example-erc7683-order.json`](./example-erc7683-order.json)
 
 ## Bridge USDC from Base to Arbitrum

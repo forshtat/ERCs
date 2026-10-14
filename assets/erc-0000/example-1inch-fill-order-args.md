@@ -2,6 +2,21 @@
 
 Calls to `fillOrderArgs` on 1inch Aggregation Router v6, which contains Limit Order Protocol v4.
 
+```solidity
+struct Order {
+    uint256 salt;
+    Address maker;        // uint256 holding an address
+    Address receiver;
+    Address makerAsset;
+    Address takerAsset;
+    uint256 makingAmount;
+    uint256 takingAmount;
+    MakerTraits makerTraits;
+}
+
+function fillOrderArgs(Order calldata order, bytes32 r, bytes32 vs, uint256 amount, TakerTraits takerTraits, bytes calldata args) external payable;
+```
+
 Descriptor: [`example-1inch-fill-order-args.json`](./example-1inch-fill-order-args.json)
 
 ## Fill half the order, paying a USDC amount

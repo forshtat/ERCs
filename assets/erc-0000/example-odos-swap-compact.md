@@ -2,6 +2,11 @@
 
 Calls to `swapCompact()` on Odos Router V2 on Ethereum. All arguments are packed after the selector and read from `@.data`.
 
+```solidity
+// all arguments are packed after the selector
+function swapCompact() external payable;
+```
+
 Descriptor: [`example-odos-swap-compact.json`](./example-odos-swap-compact.json)
 
 ## ETH to USDC, received by the sender

@@ -2,6 +2,11 @@
 
 Calls to `multicall(bytes[])` on `BalancerRelayer` V6 on Ethereum. Each element is decoded with the `BatchRelayerLibrary` descriptor.
 
+```solidity
+// every element is DELEGATECALLed into BatchRelayerLibrary
+function multicall(bytes[] calldata data) external payable;
+```
+
 Descriptor: [`example-balancer-relayer-multicall.json`](./example-balancer-relayer-multicall.json)
 
 ## Approve the relayer and join a pool

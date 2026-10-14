@@ -2,6 +2,11 @@
 
 Calls to `execute(bytes,bytes[],uint256)` on Universal Router 2.0.0. Each command byte selects how the matching element of `inputs` is decoded.
 
+```solidity
+// commands: one byte per command; inputs[i]: ABI-encoded parameters of commands[i]
+function execute(bytes calldata commands, bytes[] calldata inputs, uint256 deadline) external payable;
+```
+
 Descriptor: [`example-universal-router.json`](./example-universal-router.json)
 
 ## ETH to USDC: wrap ETH, then swap

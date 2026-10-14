@@ -2,6 +2,12 @@
 
 Calls to `executeOperation` on the illustrative `TieredExecutor`. The legacy token and reward vault descriptors are known to the wallet.
 
+```solidity
+enum Operation { None, GrantReward, CreditLegacy }
+
+function executeOperation(address target, Operation op, address account, uint256 amount) external;
+```
+
 Descriptor: [`example-tiered-executor.json`](./example-tiered-executor.json)
 
 ## Grant a reward

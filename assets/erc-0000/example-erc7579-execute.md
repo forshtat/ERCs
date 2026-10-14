@@ -2,6 +2,11 @@
 
 Calls to `execute(bytes32,bytes)` on a Biconomy Nexus account on Base.
 
+```solidity
+// mode: callType (1 byte) | execType (1 byte) | unused (4 bytes) | modeSelector (4 bytes) | modePayload (22 bytes)
+function execute(bytes32 mode, bytes calldata executionCalldata) external payable;
+```
+
 Descriptor: [`example-erc7579-execute.json`](./example-erc7579-execute.json)
 
 ## Single call: send USDC

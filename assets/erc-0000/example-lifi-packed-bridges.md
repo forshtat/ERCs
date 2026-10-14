@@ -2,6 +2,29 @@
 
 Calls to the `AcrossFacetPackedV4` functions of the LI.FI Diamond on Ethereum.
 
+```solidity
+struct PackedParameters {
+    bytes8 transactionId;
+    bytes32 receiver;
+    bytes32 depositor;
+    uint64 destinationChainId;
+    bytes32 receivingAssetId;
+    uint256 outputAmount;
+    bytes32 exclusiveRelayer;
+    uint32 quoteTimestamp;
+    uint32 fillDeadline;
+    uint32 exclusivityParameter;
+    bytes message;
+}
+
+// all arguments are packed after the selector
+function startBridgeTokensViaAcrossV4NativePacked() external payable;
+function startBridgeTokensViaAcrossV4ERC20Packed() external;
+
+function startBridgeTokensViaAcrossV4NativeMin(PackedParameters calldata _parameters) external payable;
+function startBridgeTokensViaAcrossV4ERC20Min(PackedParameters calldata _parameters, bytes32 sendingAssetId, uint256 inputAmount) external;
+```
+
 Descriptor: [`example-lifi-packed-bridges.json`](./example-lifi-packed-bridges.json)
 
 ## USDC from Ethereum to Arbitrum, packed

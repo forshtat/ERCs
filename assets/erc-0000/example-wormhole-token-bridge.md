@@ -2,6 +2,11 @@
 
 Calls to `completeTransfer(bytes)` on the Wormhole Token Bridge on Ethereum.
 
+```solidity
+// encodedVm: a packed signed message (VAA)
+function completeTransfer(bytes memory encodedVm) public;
+```
+
 Descriptor: [`example-wormhole-token-bridge.json`](./example-wormhole-token-bridge.json)
 
 ## USDC returning from Solana

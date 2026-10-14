@@ -2,6 +2,10 @@
 
 Calls to `scopeTarget(bytes32,address)` on a Zodiac Roles v2 module on Ethereum, usually executed by the Safe that owns the module.
 
+```solidity
+function scopeTarget(bytes32 roleKey, address targetAddress) external;
+```
+
 Descriptor: [`example-zodiac-roles.json`](./example-zodiac-roles.json)
 
 ## Text role key

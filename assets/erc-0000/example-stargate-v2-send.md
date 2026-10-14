@@ -2,6 +2,25 @@
 
 Calls to `send` on the Stargate V2 USDC pool on Ethereum.
 
+```solidity
+struct SendParam {
+    uint32 dstEid;
+    bytes32 to;
+    uint256 amountLD;
+    uint256 minAmountLD;
+    bytes extraOptions;
+    bytes composeMsg;
+    bytes oftCmd;
+}
+
+struct MessagingFee {
+    uint256 nativeFee;
+    uint256 lzTokenFee;
+}
+
+function send(SendParam calldata _sendParam, MessagingFee calldata _fee, address _refundAddress) external payable;
+```
+
 Descriptor: [`example-stargate-v2-send.json`](./example-stargate-v2-send.json)
 
 ## Taxi to Arbitrum with default options

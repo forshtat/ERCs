@@ -2,6 +2,18 @@
 
 Calls to `initialize` on the Uniswap v4 `PoolManager` on Ethereum.
 
+```solidity
+struct PoolKey {
+    Currency currency0;
+    Currency currency1;
+    uint24 fee;
+    int24 tickSpacing;
+    IHooks hooks;
+}
+
+function initialize(PoolKey memory key, uint160 sqrtPriceX96) external;
+```
+
 Descriptor: [`example-uniswap-v4-initialize.json`](./example-uniswap-v4-initialize.json)
 
 ## ETH/USDC 0.05% pool without hooks

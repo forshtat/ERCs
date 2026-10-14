@@ -2,6 +2,11 @@
 
 Calls to `modifyLiquidities(bytes,uint256)` on the Uniswap v4 `PositionManager` on Ethereum.
 
+```solidity
+// unlockData: abi.encode(bytes actions, bytes[] params)
+function modifyLiquidities(bytes calldata unlockData, uint256 deadline) external payable;
+```
+
 Descriptor: [`example-uniswap-v4-position-manager.json`](./example-uniswap-v4-position-manager.json)
 
 ## Mint an ETH/USDC position

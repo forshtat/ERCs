@@ -2,6 +2,10 @@
 
 A direct call to the illustrative contract that `TieredExecutor` routes to.
 
+```solidity
+function creditAccount(uint256 amount, address to) external;
+```
+
 Descriptor: [`example-legacy-token.json`](./example-legacy-token.json)
 
 ## Credit a balance

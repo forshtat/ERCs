@@ -2,6 +2,33 @@
 
 Calls to `BatchRelayerLibrary` functions on Ethereum, which `BalancerRelayer.multicall` reaches with `DELEGATECALL`. Each vector decodes one call against the library's descriptor.
 
+```solidity
+enum PoolKind { WEIGHTED, LEGACY_STABLE, COMPOSABLE_STABLE, COMPOSABLE_STABLE_V2 }
+
+struct JoinPoolRequest {
+    IAsset[] assets;
+    uint256[] maxAmountsIn;
+    bytes userData;
+    bool fromInternalBalance;
+}
+
+struct ExitPoolRequest {
+    IAsset[] assets;
+    uint256[] minAmountsOut;
+    bytes userData;
+    bool toInternalBalance;
+}
+
+struct OutputReference {
+    uint256 index;
+    uint256 key;
+}
+
+function setRelayerApproval(address relayer, bool approved, bytes calldata authorisation) external payable;
+function joinPool(bytes32 poolId, PoolKind kind, address sender, address recipient, JoinPoolRequest memory request, uint256 value, uint256 outputReference) external payable;
+function exitPool(bytes32 poolId, PoolKind kind, address sender, address payable recipient, ExitPoolRequest memory request, OutputReference[] calldata outputReferences) external payable;
+```
+
 Descriptor: [`example-balancer-relayer-library.json`](./example-balancer-relayer-library.json)
 
 ## Approve the relayer
