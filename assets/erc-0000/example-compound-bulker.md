@@ -9,14 +9,30 @@ function invoke(bytes32[] calldata actions, bytes[] calldata data) external paya
 
 Descriptor: [`example-compound-bulker.json`](./example-compound-bulker.json)
 
+All vectors are sent by `0x1111111111111111111111111111111111111111` to `0xa397a8C2086C554B531c02E29f3291c9704B00c7` on Ethereum.
+
 ## Supply WETH as collateral and borrow USDC
 
-Each action becomes a call from `Bulker` to `Comet` whose first argument is the sender, which is not part of `data`. The `Comet` descriptor is not known in this vector, so the reassembled calls are shown with their raw arguments.
+`Bulker` calls `Comet` with the sender as the first argument, which is not part of `data`. The `Comet` descriptor is not known here, so those calls are shown with raw arguments.
 
-- Chain ID: 1
-- From: `0x1111111111111111111111111111111111111111`
-- To: `0xa397a8C2086C554B531c02E29f3291c9704B00c7`
-- Value: 0 ETH
+Arguments:
+
+```
+actions:
+  [0]: 0x414354494f4e5f535550504c595f415353455400000000000000000000000000
+  [1]: 0x414354494f4e5f57495448445241575f41535345540000000000000000000000
+data:
+  [0]: abi.encode(...)
+    comet: 0xc3d688B66703497DAA19211EEdff47f25384cdc3
+    to: 0x1111111111111111111111111111111111111111
+    asset: 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2
+    amount: 2000000000000000000
+  [1]: abi.encode(...)
+    comet: 0xc3d688B66703497DAA19211EEdff47f25384cdc3
+    to: 0x1111111111111111111111111111111111111111
+    asset: 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48
+    amount: 3000000000
+```
 
 Calldata:
 
@@ -52,10 +68,24 @@ Action 2: Withdraw or borrow
 
 ## Claim rewards and transfer USDC to another account
 
-- Chain ID: 1
-- From: `0x1111111111111111111111111111111111111111`
-- To: `0xa397a8C2086C554B531c02E29f3291c9704B00c7`
-- Value: 0 ETH
+Arguments:
+
+```
+actions:
+  [0]: 0x414354494f4e5f434c41494d5f52455741524400000000000000000000000000
+  [1]: 0x414354494f4e5f5452414e534645525f41535345540000000000000000000000
+data:
+  [0]: abi.encode(...)
+    comet: 0xc3d688B66703497DAA19211EEdff47f25384cdc3
+    rewards: 0x1B0e765F6224C21223AeA2af16c1C46E38885a40
+    src: 0x1111111111111111111111111111111111111111
+    shouldAccrue: true
+  [1]: abi.encode(...)
+    comet: 0xc3d688B66703497DAA19211EEdff47f25384cdc3
+    to: 0xA11cea11CEA11CEA11cEa11CeA11ceA11CEA11Ce
+    asset: 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48
+    amount: 500000000
+```
 
 Calldata:
 
@@ -89,12 +119,20 @@ Action 2: Transfer within Compound
 
 ## Undescribed action
 
-`ACTION_SUPPLY_NATIVE_TOKEN` is not described. The descriptor rejects it.
+`ACTION_SUPPLY_NATIVE_TOKEN` is not described, so it is rejected.
 
-- Chain ID: 1
-- From: `0x1111111111111111111111111111111111111111`
-- To: `0xa397a8C2086C554B531c02E29f3291c9704B00c7`
-- Value: 1 ETH
+Arguments:
+
+```
+value: 1 ETH
+actions:
+  [0]: 0x414354494f4e5f535550504c595f4e41544956455f544f4b454e000000000000
+data:
+  [0]: abi.encode(...)
+    comet: 0xc3d688B66703497DAA19211EEdff47f25384cdc3
+    to: 0x1111111111111111111111111111111111111111
+    amount: 1000000000000000000
+```
 
 Calldata:
 

@@ -8,12 +8,16 @@ function grantReward(address to, uint256 amount) external;
 
 Descriptor: [`example-reward-vault.json`](./example-reward-vault.json)
 
+All vectors are sent by `0x1111111111111111111111111111111111111111` to `0x0000000000000000000000000000000000001003` on Ethereum.
+
 ## Grant a reward
 
-- Chain ID: 1
-- From: `0x1111111111111111111111111111111111111111`
-- To: `0x0000000000000000000000000000000000001003`
-- Value: 0 ETH
+Arguments:
+
+```
+to: 0xA11cea11CEA11CEA11cEa11CeA11ceA11CEA11Ce
+amount: 300000000000000000
+```
 
 Calldata:
 

@@ -27,14 +27,30 @@ function startBridgeTokensViaAcrossV4ERC20Min(PackedParameters calldata _paramet
 
 Descriptor: [`example-lifi-packed-bridges.json`](./example-lifi-packed-bridges.json)
 
+All vectors are sent by `0x1111111111111111111111111111111111111111` to `0x1231DEB6f5749EF6cE6943a275A1D3E7486F4EaE` on Ethereum.
+
 ## USDC from Ethereum to Arbitrum, packed
 
-All arguments are packed after the selector of `startBridgeTokensViaAcrossV4ERC20Packed()`. Addresses are 32 bytes wide so that non-EVM destinations fit. The amount received is in the destination token's units, which the wallet cannot resolve, so it is shown raw.
+The amount received is in the destination token's units, so it is shown raw.
 
-- Chain ID: 1
-- From: `0x1111111111111111111111111111111111111111`
-- To: `0x1231DEB6f5749EF6cE6943a275A1D3E7486F4EaE`
-- Value: 0 ETH
+Arguments:
+
+```
+data after the selector: abi.encodePacked(...)
+  transactionId: 0x1d3ac0ffee5eed01
+  depositor: 0x0000000000000000000000001111111111111111111111111111111111111111
+  receiver: 0x0000000000000000000000001111111111111111111111111111111111111111
+  sendingAssetId: 0x000000000000000000000000a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48
+  receivingAssetId: 0x000000000000000000000000af88d065e77c8cc2239327c5edb3a432268e5831
+  inputAmount: 1000000000
+  outputAmount: 999200000
+  destinationChainId: 42161
+  exclusiveRelayer: 0x0000000000000000000000000000000000000000000000000000000000000000
+  quoteTimestamp: 1791892800
+  fillDeadline: 1791907200
+  exclusivityParameter: 0
+  message: 0x
+```
 
 Calldata:
 
@@ -59,10 +75,23 @@ Fill deadline: 2026-10-13 16:00:00 UTC
 
 ## ETH from Ethereum to Base, packed, with an exclusive relayer and another recipient
 
-- Chain ID: 1
-- From: `0x1111111111111111111111111111111111111111`
-- To: `0x1231DEB6f5749EF6cE6943a275A1D3E7486F4EaE`
-- Value: 0.5 ETH
+Arguments:
+
+```
+value: 0.5 ETH
+data after the selector: abi.encodePacked(...)
+  transactionId: 0x1d3ac0ffee5eed01
+  depositor: 0x0000000000000000000000001111111111111111111111111111111111111111
+  receiver: 0x000000000000000000000000a11cea11cea11cea11cea11cea11cea11cea11ce
+  receivingAssetId: 0x0000000000000000000000004200000000000000000000000000000000000006
+  outputAmount: 499600000000000000
+  destinationChainId: 8453
+  exclusiveRelayer: 0x000000000000000000000000b0bb0bb0bb0bb0bb0bb0bb0bb0bb0bb0bb0bb0bb
+  quoteTimestamp: 1791892800
+  fillDeadline: 1791907200
+  exclusivityParameter: 60
+  message: 0x
+```
 
 Calldata:
 
@@ -87,12 +116,24 @@ Amount sent: 0.5 ETH
 
 ## USDC from Ethereum to Arbitrum, ABI-encoded
 
-The `Min` variant takes ABI-encoded arguments. `sendingAssetId` is a `bytes32` holding the token address.
+Arguments:
 
-- Chain ID: 1
-- From: `0x1111111111111111111111111111111111111111`
-- To: `0x1231DEB6f5749EF6cE6943a275A1D3E7486F4EaE`
-- Value: 0 ETH
+```
+_parameters:
+  transactionId: 0x1d3ac0ffee5eed01
+  receiver: 0x0000000000000000000000001111111111111111111111111111111111111111
+  depositor: 0x0000000000000000000000001111111111111111111111111111111111111111
+  destinationChainId: 42161
+  receivingAssetId: 0x000000000000000000000000af88d065e77c8cc2239327c5edb3a432268e5831
+  outputAmount: 2498000000
+  exclusiveRelayer: 0x0000000000000000000000000000000000000000000000000000000000000000
+  quoteTimestamp: 1791892800
+  fillDeadline: 1791907200
+  exclusivityParameter: 0
+  message: 0x
+sendingAssetId: 0x000000000000000000000000a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48
+inputAmount: 2500000000
+```
 
 Calldata:
 

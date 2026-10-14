@@ -19,14 +19,30 @@ function fillOrderArgs(Order calldata order, bytes32 r, bytes32 vs, uint256 amou
 
 Descriptor: [`example-1inch-fill-order-args.json`](./example-1inch-fill-order-args.json)
 
+All vectors are sent by `0x1111111111111111111111111111111111111111` to `0x111111125421cA6dc452d289314280a0f8842A65` on Ethereum.
+
 ## Fill half the order, paying a USDC amount
 
-`takerTraits` bit 255 is clear, so `amount` is what the taker pays and the threshold is the minimum received. Bit 251 is clear, so the maker's tokens go to the sender.
+Bit 255 of `takerTraits` is clear: `amount` is paid by the taker. Bit 251 is clear: the maker's tokens go to the sender.
 
-- Chain ID: 1
-- From: `0x1111111111111111111111111111111111111111`
-- To: `0x111111125421cA6dc452d289314280a0f8842A65`
-- Value: 0 ETH
+Arguments:
+
+```
+order:
+  salt: 4660
+  maker: 0xa11cea11cea11cea11cea11cea11cea11cea11ce
+  receiver: 0
+  makerAsset: 0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2
+  takerAsset: 0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48
+  makingAmount: 1000000000000000000
+  takingAmount: 2600000000
+  makerTraits: 0
+r: 0x0000000000000000000000000000000000000000000000000000000000000000
+vs: 0x0000000000000000000000000000000000000000000000000000000000000000
+amount: 1300000000
+takerTraits: 490000000000000000
+args: 0x
+```
 
 Calldata:
 
@@ -50,12 +66,33 @@ Recipient: 0x1111111111111111111111111111111111111111
 
 ## Fill the whole order for a WETH amount, sending WETH to another address
 
-Bit 255 is set, so `amount` is what the taker receives and the threshold is the maximum paid. Bit 251 is set, so `args` starts with the recipient, followed by a 36-byte extension and a 22-byte interaction whose lengths come from `takerTraits`. The order's `salt` commits to the extension's hash.
+Bit 255 of `takerTraits` is set: `amount` is received by the taker. Bit 251 is set: `args` starts with the recipient. The section lengths come from `takerTraits`.
 
-- Chain ID: 1
-- From: `0x1111111111111111111111111111111111111111`
-- To: `0x111111125421cA6dc452d289314280a0f8842A65`
-- Value: 0 ETH
+Arguments:
+
+```
+order:
+  salt: 0xabcda4d0af8273fd9be40da3bf5e377f794ad3ce6c1a
+  maker: 0xa11cea11cea11cea11cea11cea11cea11cea11ce
+  receiver: 0
+  makerAsset: 0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2
+  takerAsset: 0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48
+  makingAmount: 1000000000000000000
+  takingAmount: 2600000000
+  makerTraits: 0
+r: 0x0000000000000000000000000000000000000000000000000000000000000000
+vs: 0x0000000000000000000000000000000000000000000000000000000000000000
+amount: 1000000000000000000
+takerTraits: 0x880000240000160000000000000000000000000000000000000000009b917080
+args: abi.encodePacked(...)
+  target: 0xb0bB0bB0Bb0Bb0bB0Bb0bb0bb0bB0BB0Bb0BB0Bb
+  extension: abi.encodePacked(...)
+    offsets: 0x0000000000000000000000000000000000000000000000000000000000000000
+    customData: 0xdeadbeef
+  interaction: abi.encodePacked(...)
+    target: 0xb0bB0bB0Bb0Bb0bB0Bb0bb0bb0bB0BB0Bb0BB0Bb
+    extraData: 0xcafe
+```
 
 Calldata:
 

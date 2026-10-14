@@ -9,12 +9,29 @@ function multiSend(bytes memory transactions) public payable;
 
 Descriptor: [`example-safe-multisend.json`](./example-safe-multisend.json)
 
+All vectors are sent by `0x5afe5afE5afE5afE5afE5aFe5aFe5Afe5Afe5AfE` to `0xA238CBeb142c10Ef7Ad8442C6D1f9E89e07e7761` on Ethereum.
+
 ## Two calls: a USDC transfer and an ETH transfer
 
-- Chain ID: 1
-- From: `0x5afe5afE5afE5afE5afE5aFe5aFe5Afe5Afe5AfE`
-- To: `0xA238CBeb142c10Ef7Ad8442C6D1f9E89e07e7761`
-- Value: 0 ETH
+Arguments:
+
+```
+transactions: abi.encodePacked(...)
+  [0]: abi.encodePacked(...)
+    operation: 0x00
+    to: 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48
+    value: 0
+    dataLength: 68
+    data: transfer(...)
+      to: 0xA11cea11CEA11CEA11cEa11CeA11ceA11CEA11Ce
+      amount: 250000000
+  [1]: abi.encodePacked(...)
+    operation: 0x00
+    to: 0xb0bB0bB0Bb0Bb0bB0Bb0bb0bb0bB0BB0Bb0BB0Bb
+    value: 100000000000000000
+    dataLength: 0
+    data: 0x
+```
 
 Calldata:
 
@@ -37,12 +54,28 @@ Transaction 2: Send ETH
 
 ## An approval followed by a DELEGATECALL to a library
 
-The second transaction is executed with `DELEGATECALL` (operation byte `0x01`). Its callee has no descriptor, so it is shown as an unknown function.
+The second transaction's callee has no descriptor.
 
-- Chain ID: 1
-- From: `0x5afe5afE5afE5afE5afE5aFe5aFe5Afe5Afe5AfE`
-- To: `0xA238CBeb142c10Ef7Ad8442C6D1f9E89e07e7761`
-- Value: 0 ETH
+Arguments:
+
+```
+transactions: abi.encodePacked(...)
+  [0]: abi.encodePacked(...)
+    operation: 0x00
+    to: 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2
+    value: 0
+    dataLength: 68
+    data: approve(...)
+      spender: 0xb0bB0bB0Bb0Bb0bB0Bb0bb0bb0bB0BB0Bb0BB0Bb
+      amount: 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+  [1]: abi.encodePacked(...)
+    operation: 0x01
+    to: 0xA65387F16B013cf2Af4605Ad8aA5ec25a2cbA3a2
+    value: 0
+    dataLength: 100
+    data: signMessage(...)
+      _data: 0x68656c6c6f
+```
 
 Calldata:
 

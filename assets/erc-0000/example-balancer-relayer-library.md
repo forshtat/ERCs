@@ -31,14 +31,21 @@ function exitPool(bytes32 poolId, PoolKind kind, address sender, address payable
 
 Descriptor: [`example-balancer-relayer-library.json`](./example-balancer-relayer-library.json)
 
+All vectors are sent by `0x1111111111111111111111111111111111111111` to `0xeA66501dF1A00261E3bB79D1E90444fc6A186B62` on Ethereum.
+
 ## Approve the relayer
 
-`authorisation` is `abi.encode(deadline, v, r, s)`, the Vault's signature for `setRelayerApproval`.
+Arguments:
 
-- Chain ID: 1
-- From: `0x1111111111111111111111111111111111111111`
-- To: `0xeA66501dF1A00261E3bB79D1E90444fc6A186B62`
-- Value: 0 ETH
+```
+relayer: 0x35Cea9e57A393ac66Aaa7E25C391D52C74B5648f
+approved: true
+authorisation: abi.encode(...)
+  deadline: 1791892800
+  v: 27
+  r: 0x1111111111111111111111111111111111111111111111111111111111111111
+  s: 0x2222222222222222222222222222222222222222222222222222222222222222
+```
 
 Calldata:
 
@@ -57,12 +64,33 @@ Signature valid until: 2026-10-13 12:00:00 UTC
 
 ## Join the 80BAL-20WETH pool with BAL and ETH
 
-Pool kind `0` (weighted), join kind `1` (`EXACT_TOKENS_IN_FOR_BPT_OUT`). ETH is the zero address in `assets`.
+Pool kind `0` is weighted; join kind `1` is `EXACT_TOKENS_IN_FOR_BPT_OUT`. ETH is the zero address in `assets`.
 
-- Chain ID: 1
-- From: `0x1111111111111111111111111111111111111111`
-- To: `0xeA66501dF1A00261E3bB79D1E90444fc6A186B62`
-- Value: 1 ETH
+Arguments:
+
+```
+value: 1 ETH
+poolId: 0x5c6ee304399dbdb9c8ef030ab642b10820db8f56000200000000000000000014
+kind: 0
+sender: 0x1111111111111111111111111111111111111111
+recipient: 0x1111111111111111111111111111111111111111
+request:
+  assets:
+    [0]: 0xba100000625a3754423978a60c9317c58a424e3D
+    [1]: 0x0000000000000000000000000000000000000000
+  maxAmountsIn:
+    [0]: 1000000000000000000000
+    [1]: 1000000000000000000
+  userData: abi.encode(...)
+    joinKind: 1
+    amountsIn:
+      [0]: 1000000000000000000000
+      [1]: 1000000000000000000
+    minBptAmountOut: 250000000000000000000
+  fromInternalBalance: false
+value: 1000000000000000000
+outputReference: 0
+```
 
 Calldata:
 
@@ -88,12 +116,28 @@ Pool tokens out: Not saved
 
 ## Exit the 80BAL-20WETH pool proportionally
 
-Pool kind `0` (weighted), exit kind `1` (`EXACT_BPT_IN_FOR_TOKENS_OUT`).
+Exit kind `1` is `EXACT_BPT_IN_FOR_TOKENS_OUT`.
 
-- Chain ID: 1
-- From: `0x1111111111111111111111111111111111111111`
-- To: `0xeA66501dF1A00261E3bB79D1E90444fc6A186B62`
-- Value: 0 ETH
+Arguments:
+
+```
+poolId: 0x5c6ee304399dbdb9c8ef030ab642b10820db8f56000200000000000000000014
+kind: 0
+sender: 0x1111111111111111111111111111111111111111
+recipient: 0x1111111111111111111111111111111111111111
+request:
+  assets:
+    [0]: 0xba100000625a3754423978a60c9317c58a424e3D
+    [1]: 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2
+  minAmountsOut:
+    [0]: 990000000000000000000
+    [1]: 990000000000000000
+  userData: abi.encode(...)
+    exitKind: 1
+    bptAmountIn: 300000000000000000000
+  toInternalBalance: false
+outputReferences: []
+```
 
 Calldata:
 
@@ -117,12 +161,30 @@ Receive to Vault internal balance: false
 
 ## Exit the wstETH-WETH pool in recovery mode
 
-Exit kind `255` (recovery mode) is the same for every pool kind. The pool's own token is part of `assets`.
+Exit kind `255` (recovery mode) is the same for every pool kind.
 
-- Chain ID: 1
-- From: `0x1111111111111111111111111111111111111111`
-- To: `0xeA66501dF1A00261E3bB79D1E90444fc6A186B62`
-- Value: 0 ETH
+Arguments:
+
+```
+poolId: 0x93d199263632a4ef4bb438f1feb99e57b4b5f0bd0000000000000000000005c2
+kind: 3
+sender: 0x1111111111111111111111111111111111111111
+recipient: 0x1111111111111111111111111111111111111111
+request:
+  assets:
+    [0]: 0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0
+    [1]: 0x93d199263632a4EF4Bb438F1feB99e57b4b5f0BD
+    [2]: 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2
+  minAmountsOut:
+    [0]: 0
+    [1]: 0
+    [2]: 0
+  userData: abi.encode(...)
+    exitKind: 255
+    bptAmountIn: 10000000000000000000
+  toInternalBalance: false
+outputReferences: []
+```
 
 Calldata:
 
@@ -147,12 +209,30 @@ Receive to Vault internal balance: false
 
 ## Unsupported join kind
 
-Join kind `2` (`TOKEN_IN_FOR_EXACT_BPT_OUT`) is not described. The descriptor rejects it.
+Join kind `2` (`TOKEN_IN_FOR_EXACT_BPT_OUT`) is not described, so it is rejected.
 
-- Chain ID: 1
-- From: `0x1111111111111111111111111111111111111111`
-- To: `0xeA66501dF1A00261E3bB79D1E90444fc6A186B62`
-- Value: 0 ETH
+Arguments:
+
+```
+poolId: 0x5c6ee304399dbdb9c8ef030ab642b10820db8f56000200000000000000000014
+kind: 0
+sender: 0x1111111111111111111111111111111111111111
+recipient: 0x1111111111111111111111111111111111111111
+request:
+  assets:
+    [0]: 0xba100000625a3754423978a60c9317c58a424e3D
+    [1]: 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2
+  maxAmountsIn:
+    [0]: 0
+    [1]: 1000000000000000000
+  userData: abi.encode(...)
+    joinKind: 2
+    bptAmountOut: 25000000000000000000
+    enterTokenIndex: 1
+  fromInternalBalance: false
+value: 0
+outputReference: 0
+```
 
 Calldata:
 

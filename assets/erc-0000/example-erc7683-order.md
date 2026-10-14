@@ -14,14 +14,31 @@ function open(OnchainCrossChainOrder calldata order) external;
 
 Descriptor: [`example-erc7683-order.json`](./example-erc7683-order.json)
 
+All vectors are sent by `0x1111111111111111111111111111111111111111` to `0x4afb570AC68BfFc26Bb02FdA3D801728B0f93C9E` on Base.
+
 ## Bridge USDC from Base to Arbitrum
 
-`orderData` is `abi.encode(AcrossOrderData)`, selected by `orderDataType`, the hash of its type string. The output token is resolved on the destination chain.
+The output token is resolved on the destination chain.
 
-- Chain ID: 8453
-- From: `0x1111111111111111111111111111111111111111`
-- To: `0x4afb570AC68BfFc26Bb02FdA3D801728B0f93C9E`
-- Value: 0 ETH
+Arguments:
+
+```
+order:
+  fillDeadline: 1791896400
+  orderDataType: 0x9df4b782e7bbc178b3b93bfe8aafb909e84e39484d7f3c59f400f1b4691f85e2
+  orderData: abi.encode(...)
+    orderData:
+      inputToken: 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913
+      inputAmount: 1000000000
+      outputToken: 0xaf88d065e77c8cC2239327C5EDb3A432268e5831
+      outputAmount: 999500000
+      destinationChainId: 42161
+      recipient: 0x0000000000000000000000001111111111111111111111111111111111111111
+      exclusiveRelayer: 0x0000000000000000000000000000000000000000
+      depositNonce: 0
+      exclusivityPeriod: 0
+      message: 0x
+```
 
 Calldata:
 
@@ -45,10 +62,25 @@ Order data: Across V3 relay order
 
 ## Bridge WETH from Base to Ethereum with an exclusive relayer
 
-- Chain ID: 8453
-- From: `0x1111111111111111111111111111111111111111`
-- To: `0x4afb570AC68BfFc26Bb02FdA3D801728B0f93C9E`
-- Value: 0 ETH
+Arguments:
+
+```
+order:
+  fillDeadline: 1791896400
+  orderDataType: 0x9df4b782e7bbc178b3b93bfe8aafb909e84e39484d7f3c59f400f1b4691f85e2
+  orderData: abi.encode(...)
+    orderData:
+      inputToken: 0x4200000000000000000000000000000000000006
+      inputAmount: 500000000000000000
+      outputToken: 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2
+      outputAmount: 499500000000000000
+      destinationChainId: 1
+      recipient: 0x000000000000000000000000a11cea11cea11cea11cea11cea11cea11cea11ce
+      exclusiveRelayer: 0xb0bB0bB0Bb0Bb0bB0Bb0bb0bb0bB0BB0Bb0BB0Bb
+      depositNonce: 7
+      exclusivityPeriod: 60
+      message: 0x
+```
 
 Calldata:
 
@@ -73,12 +105,15 @@ Order data: Across V3 relay order
 
 ## Unknown order data type
 
-An `orderDataType` other than the hash of `AcrossOrderData` is rejected.
+Arguments:
 
-- Chain ID: 8453
-- From: `0x1111111111111111111111111111111111111111`
-- To: `0x4afb570AC68BfFc26Bb02FdA3D801728B0f93C9E`
-- Value: 0 ETH
+```
+order:
+  fillDeadline: 1791896400
+  orderDataType: 0x5ed70f4e11142e6ac8463de8766be42d821082bed20e6c1054c538bb994ac266
+  orderData: abi.encode(...)
+    x: 1
+```
 
 Calldata:
 

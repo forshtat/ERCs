@@ -9,14 +9,26 @@ function execute(bytes32 mode, bytes calldata executionCalldata) external payabl
 
 Descriptor: [`example-erc7579-execute.json`](./example-erc7579-execute.json)
 
+All vectors are sent by `0x1111111111111111111111111111111111111111` to `0x510a1274373c8120DE634dB372723edcBE899994` on Base.
+
 ## Single call: send USDC
 
-`executionCalldata` is `abi.encodePacked(target, value, callData)`.
+Arguments:
 
-- Chain ID: 8453
-- From: `0x1111111111111111111111111111111111111111`
-- To: `0x510a1274373c8120DE634dB372723edcBE899994`
-- Value: 0 ETH
+```
+mode: abi.encodePacked(...)
+  callType: 0x00
+  execType: 0x00
+  unused: 0x00000000
+  modeSelector: 0x00000000
+  modePayload: 0x00000000000000000000000000000000000000000000
+executionCalldata: abi.encodePacked(...)
+  target: 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913
+  value: 0
+  callData: transfer(...)
+    to: 0xA11cea11CEA11CEA11cEa11CeA11ceA11CEA11Ce
+    amount: 250000000
+```
 
 Calldata:
 
@@ -38,12 +50,34 @@ Call: Send
 
 ## Batch call that continues on failure: approve and send
 
-`executionCalldata` is `abi.encode(Execution[])`. The third call sends 0.01 ETH with no data.
+Arguments:
 
-- Chain ID: 8453
-- From: `0x1111111111111111111111111111111111111111`
-- To: `0x510a1274373c8120DE634dB372723edcBE899994`
-- Value: 0 ETH
+```
+mode: abi.encodePacked(...)
+  callType: 0x01
+  execType: 0x01
+  unused: 0x00000000
+  modeSelector: 0x00000000
+  modePayload: 0x00000000000000000000000000000000000000000000
+executionCalldata: abi.encode(...)
+  executions:
+    [0]:
+      target: 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913
+      value: 0
+      callData: approve(...)
+        spender: 0xcF77a3Ba9A5CA399B7c97c74d54e5b1Beb874E43
+        amount: 1000000000
+    [1]:
+      target: 0x4200000000000000000000000000000000000006
+      value: 0
+      callData: transfer(...)
+        to: 0xb0bB0bB0Bb0Bb0bB0Bb0bb0bb0bB0BB0Bb0BB0Bb
+        amount: 50000000000000000
+    [2]:
+      target: 0xA11cea11CEA11CEA11cEa11CeA11ceA11CEA11Ce
+      value: 10000000000000000
+      callData: 0x
+```
 
 Calldata:
 
@@ -73,12 +107,22 @@ Execution: Execute batch
 
 ## Delegatecall
 
-`executionCalldata` is `abi.encodePacked(target, callData)`, with no value. The callee has no descriptor.
+The callee has no descriptor.
 
-- Chain ID: 8453
-- From: `0x1111111111111111111111111111111111111111`
-- To: `0x510a1274373c8120DE634dB372723edcBE899994`
-- Value: 0 ETH
+Arguments:
+
+```
+mode: abi.encodePacked(...)
+  callType: 0xff
+  execType: 0x00
+  unused: 0x00000000
+  modeSelector: 0x00000000
+  modePayload: 0x00000000000000000000000000000000000000000000
+executionCalldata: abi.encodePacked(...)
+  target: 0xb0bB0bB0Bb0Bb0bB0Bb0bb0bb0bB0BB0Bb0BB0Bb
+  callData: migrate(...)
+    version: 2
+```
 
 Calldata:
 
@@ -99,12 +143,23 @@ Call: Unknown function 0x454b0608 (DELEGATECALL)
 
 ## Static call type
 
-Call type `0xfe` (static call) is not described. The descriptor rejects it.
+Call type `0xfe` (static call) is not described, so it is rejected.
 
-- Chain ID: 8453
-- From: `0x1111111111111111111111111111111111111111`
-- To: `0x510a1274373c8120DE634dB372723edcBE899994`
-- Value: 0 ETH
+Arguments:
+
+```
+mode: abi.encodePacked(...)
+  callType: 0xfe
+  execType: 0x00
+  unused: 0x00000000
+  modeSelector: 0x00000000
+  modePayload: 0x00000000000000000000000000000000000000000000
+executionCalldata: abi.encodePacked(...)
+  target: 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913
+  callData: transfer(...)
+    to: 0xA11cea11CEA11CEA11cEa11CeA11ceA11CEA11Ce
+    amount: 1
+```
 
 Calldata:
 

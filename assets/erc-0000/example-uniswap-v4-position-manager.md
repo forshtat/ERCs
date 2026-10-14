@@ -9,14 +9,44 @@ function modifyLiquidities(bytes calldata unlockData, uint256 deadline) external
 
 Descriptor: [`example-uniswap-v4-position-manager.json`](./example-uniswap-v4-position-manager.json)
 
+All vectors are sent by `0x1111111111111111111111111111111111111111` to `0xbD216513d74C8cf14cf4747E6AaA6420FF64ee9e` on Ethereum.
+
 ## Mint an ETH/USDC position
 
-Actions `0x02` (mint), `0x0d` (settle pair) and `0x14` (sweep). ETH is the zero address. `address(1)` stands for the sender.
+`address(1)` stands for the sender.
 
-- Chain ID: 1
-- From: `0x1111111111111111111111111111111111111111`
-- To: `0xbD216513d74C8cf14cf4747E6AaA6420FF64ee9e`
-- Value: 1 ETH
+Arguments:
+
+```
+value: 1 ETH
+unlockData: abi.encode(...)
+  actions: abi.encodePacked(...)
+    [0]: 0x02
+    [1]: 0x0d
+    [2]: 0x14
+  params:
+    [0]: abi.encode(...)
+      poolKey:
+        currency0: 0x0000000000000000000000000000000000000000
+        currency1: 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48
+        fee: 500
+        tickSpacing: 10
+        hooks: 0x0000000000000000000000000000000000000000
+      tickLower: -200000
+      tickUpper: -195000
+      liquidity: 1234567890123456
+      amount0Max: 1000000000000000000
+      amount1Max: 2600000000
+      owner: 0x0000000000000000000000000000000000000001
+      hookData: 0x
+    [1]: abi.encode(...)
+      currency0: 0x0000000000000000000000000000000000000000
+      currency1: 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48
+    [2]: abi.encode(...)
+      currency: 0x0000000000000000000000000000000000000000
+      to: 0x0000000000000000000000000000000000000001
+deadline: 1791892800
+```
 
 Calldata:
 
@@ -49,12 +79,28 @@ Deadline: 2026-10-13 12:00:00 UTC
 
 ## Add liquidity to an existing position
 
-The pool, and so the tokens of the amounts, depend on the position's state, so the amounts are shown raw.
+The pool, and so the tokens, depend on the position's state, so the amounts are shown raw.
 
-- Chain ID: 1
-- From: `0x1111111111111111111111111111111111111111`
-- To: `0xbD216513d74C8cf14cf4747E6AaA6420FF64ee9e`
-- Value: 0.5 ETH
+Arguments:
+
+```
+value: 0.5 ETH
+unlockData: abi.encode(...)
+  actions: abi.encodePacked(...)
+    [0]: 0x00
+    [1]: 0x0d
+  params:
+    [0]: abi.encode(...)
+      tokenId: 61234
+      liquidity: 500000000000000
+      amount0Max: 500000000000000000
+      amount1Max: 1300000000
+      hookData: 0x
+    [1]: abi.encode(...)
+      currency0: 0x0000000000000000000000000000000000000000
+      currency1: 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48
+deadline: 1791892800
+```
 
 Calldata:
 
@@ -81,10 +127,26 @@ Deadline: 2026-10-13 12:00:00 UTC
 
 Removing zero liquidity collects the position's fees.
 
-- Chain ID: 1
-- From: `0x1111111111111111111111111111111111111111`
-- To: `0xbD216513d74C8cf14cf4747E6AaA6420FF64ee9e`
-- Value: 0 ETH
+Arguments:
+
+```
+unlockData: abi.encode(...)
+  actions: abi.encodePacked(...)
+    [0]: 0x01
+    [1]: 0x11
+  params:
+    [0]: abi.encode(...)
+      tokenId: 61234
+      liquidity: 0
+      amount0Min: 0
+      amount1Min: 0
+      hookData: 0x
+    [1]: abi.encode(...)
+      currency0: 0x0000000000000000000000000000000000000000
+      currency1: 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48
+      recipient: 0x0000000000000000000000000000000000000001
+deadline: 1791892800
+```
 
 Calldata:
 
@@ -110,10 +172,25 @@ Deadline: 2026-10-13 12:00:00 UTC
 
 ## Close a position and send the tokens to another address
 
-- Chain ID: 1
-- From: `0x1111111111111111111111111111111111111111`
-- To: `0xbD216513d74C8cf14cf4747E6AaA6420FF64ee9e`
-- Value: 0 ETH
+Arguments:
+
+```
+unlockData: abi.encode(...)
+  actions: abi.encodePacked(...)
+    [0]: 0x03
+    [1]: 0x11
+  params:
+    [0]: abi.encode(...)
+      tokenId: 61234
+      amount0Min: 490000000000000000
+      amount1Min: 1270000000
+      hookData: 0x
+    [1]: abi.encode(...)
+      currency0: 0x0000000000000000000000000000000000000000
+      currency1: 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48
+      recipient: 0xb0bB0bB0Bb0Bb0bB0Bb0bb0bb0bB0BB0Bb0BB0Bb
+deadline: 1791892800
+```
 
 Calldata:
 
@@ -138,12 +215,19 @@ Deadline: 2026-10-13 12:00:00 UTC
 
 ## Unsupported action
 
-Action `0x06` (`SWAP_EXACT_IN_SINGLE`) is not supported by `PositionManager`. The descriptor rejects it.
+Action `0x06` (`SWAP_EXACT_IN_SINGLE`) is not supported by `PositionManager`, so it is rejected.
 
-- Chain ID: 1
-- From: `0x1111111111111111111111111111111111111111`
-- To: `0xbD216513d74C8cf14cf4747E6AaA6420FF64ee9e`
-- Value: 0 ETH
+Arguments:
+
+```
+unlockData: abi.encode(...)
+  actions: abi.encodePacked(...)
+    [0]: 0x06
+  params:
+    [0]: abi.encode(...)
+      unused: 0
+deadline: 1791892800
+```
 
 Calldata:
 

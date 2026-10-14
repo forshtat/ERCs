@@ -16,12 +16,21 @@ function initialize(PoolKey memory key, uint160 sqrtPriceX96) external;
 
 Descriptor: [`example-uniswap-v4-initialize.json`](./example-uniswap-v4-initialize.json)
 
+All vectors are sent by `0x1111111111111111111111111111111111111111` to `0x000000000004444c5dc75cB358380D2e3dE08A90` on Ethereum.
+
 ## ETH/USDC 0.05% pool without hooks
 
-- Chain ID: 1
-- From: `0x1111111111111111111111111111111111111111`
-- To: `0x000000000004444c5dc75cB358380D2e3dE08A90`
-- Value: 0 ETH
+Arguments:
+
+```
+key:
+  currency0: 0x0000000000000000000000000000000000000000
+  currency1: 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48
+  fee: 500
+  tickSpacing: 10
+  hooks: 0x0000000000000000000000000000000000000000
+sqrtPriceX96: 3961408125713216879677197
+```
 
 Calldata:
 
@@ -43,12 +52,19 @@ Initial price (sqrtPriceX96): 3961408125713216879677197
 
 ## Pool with a dynamic fee and swap hooks
 
-The hooks address `0x44440000000000000000000000000000000020c0` ends in `0x20c0`: bits 13, 7 and 6 are set. Fee `0x800000` marks a dynamic fee.
+The hooks address ends in `0x20c0`: bits 13, 7 and 6. Fee `0x800000` marks a dynamic fee.
 
-- Chain ID: 1
-- From: `0x1111111111111111111111111111111111111111`
-- To: `0x000000000004444c5dc75cB358380D2e3dE08A90`
-- Value: 0 ETH
+Arguments:
+
+```
+key:
+  currency0: 0x0000000000000000000000000000000000000000
+  currency1: 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48
+  fee: 8388608
+  tickSpacing: 60
+  hooks: 0x44440000000000000000000000000000000020c0
+sqrtPriceX96: 3961408125713216879677197
+```
 
 Calldata:
 
@@ -73,12 +89,19 @@ Initial price (sqrtPriceX96): 3961408125713216879677197
 
 ## Pool whose hook can change swap amounts
 
-The hooks address `0x4444000000000000000000000000000000000088` ends in `0x0088`: bit 7 (`beforeSwap`) and bit 3 (`beforeSwapReturnDelta`), which lets the hook take part of each swap.
+The hooks address ends in `0x0088`: bit 7 (`beforeSwap`) and bit 3 (`beforeSwapReturnDelta`), which lets the hook take part of each swap.
 
-- Chain ID: 1
-- From: `0x1111111111111111111111111111111111111111`
-- To: `0x000000000004444c5dc75cB358380D2e3dE08A90`
-- Value: 0 ETH
+Arguments:
+
+```
+key:
+  currency0: 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48
+  currency1: 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2
+  fee: 3000
+  tickSpacing: 60
+  hooks: 0x4444000000000000000000000000000000000088
+sqrtPriceX96: 79228162514264337593543950336
+```
 
 Calldata:
 

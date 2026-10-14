@@ -9,14 +9,35 @@ function completeTransfer(bytes memory encodedVm) public;
 
 Descriptor: [`example-wormhole-token-bridge.json`](./example-wormhole-token-bridge.json)
 
+All vectors are sent by `0x1111111111111111111111111111111111111111` to `0x3ee18B2214AFF97000D974cf647E7C347E8fa585` on Ethereum.
+
 ## USDC returning from Solana
 
-Guardian set 4 with 13 signatures, zeroed in this vector. The token's origin chain is Ethereum (Wormhole chain ID 2), so `tokenAddress` holds the USDC address. Amounts are not scaled to the token's decimals by the descriptor.
+Signatures are dummies. Amounts are not scaled to the token's decimals.
 
-- Chain ID: 1
-- From: `0x1111111111111111111111111111111111111111`
-- To: `0x3ee18B2214AFF97000D974cf647E7C347E8fa585`
-- Value: 0 ETH
+Arguments:
+
+```
+encodedVm: abi.encodePacked(...)
+  version: 1
+  guardianSetIndex: 4
+  numSignatures: 13
+  signatures: 13 entries of guardianIndex (1 byte), r (32), s (32), v (1); dummy values
+  timestamp: 1791892800
+  nonce: 0
+  emitterChainId: 1
+  emitterAddress: 0xec7372995d5cc8732397fb0ad35c0121e0eaa90d26f828a534cab54391b3a4f5
+  sequence: 123456
+  consistencyLevel: 32
+  payload: abi.encodePacked(...)
+    payloadId: 0x01
+    amount: 1000000000
+    tokenAddress: 0x000000000000000000000000a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48
+    tokenChain: 2
+    to: 0x0000000000000000000000001111111111111111111111111111111111111111
+    toChain: 2
+    fee: 0
+```
 
 Calldata:
 
@@ -41,12 +62,31 @@ Relayer fee: 0
 
 ## Wrapped SOL arriving from Solana, with a relayer fee
 
-The token's origin chain is Solana (Wormhole chain ID 1), so `tokenAddress` is its Solana mint. The amount has 8 decimals.
+`tokenAddress` is a Solana mint. The amount has 8 decimals.
 
-- Chain ID: 1
-- From: `0x1111111111111111111111111111111111111111`
-- To: `0x3ee18B2214AFF97000D974cf647E7C347E8fa585`
-- Value: 0 ETH
+Arguments:
+
+```
+encodedVm: abi.encodePacked(...)
+  version: 1
+  guardianSetIndex: 4
+  numSignatures: 13
+  signatures: 13 entries of guardianIndex (1 byte), r (32), s (32), v (1); dummy values
+  timestamp: 1791892800
+  nonce: 0
+  emitterChainId: 1
+  emitterAddress: 0xec7372995d5cc8732397fb0ad35c0121e0eaa90d26f828a534cab54391b3a4f5
+  sequence: 123456
+  consistencyLevel: 32
+  payload: abi.encodePacked(...)
+    payloadId: 0x01
+    amount: 2500000000
+    tokenAddress: 0x069b8857feab8184fb687f634618c035dac439dc1aeb3b5598a0f00000000001
+    tokenChain: 1
+    to: 0x000000000000000000000000a11cea11cea11cea11cea11cea11cea11cea11ce
+    toChain: 2
+    fee: 1000000
+```
 
 Calldata:
 
@@ -71,12 +111,32 @@ Relayer fee: 1000000
 
 ## Transfer with payload
 
-Payload type 3 is completed with `completeTransferWithPayload`, not `completeTransfer`. The descriptor rejects it.
+Payload type 3 is completed with `completeTransferWithPayload`, so it is rejected here.
 
-- Chain ID: 1
-- From: `0x1111111111111111111111111111111111111111`
-- To: `0x3ee18B2214AFF97000D974cf647E7C347E8fa585`
-- Value: 0 ETH
+Arguments:
+
+```
+encodedVm: abi.encodePacked(...)
+  version: 1
+  guardianSetIndex: 4
+  numSignatures: 13
+  signatures: 13 entries of guardianIndex (1 byte), r (32), s (32), v (1); dummy values
+  timestamp: 1791892800
+  nonce: 0
+  emitterChainId: 1
+  emitterAddress: 0xec7372995d5cc8732397fb0ad35c0121e0eaa90d26f828a534cab54391b3a4f5
+  sequence: 123456
+  consistencyLevel: 32
+  payload: abi.encodePacked(...)
+    payloadId: 0x03
+    amount: 1000000
+    tokenAddress: 0x000000000000000000000000a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48
+    tokenChain: 2
+    to: 0x0000000000000000000000001111111111111111111111111111111111111111
+    toChain: 2
+    fromAddress: 0x0000000000000000000000001111111111111111111111111111111111111111
+    payload: 0x6869
+```
 
 Calldata:
 

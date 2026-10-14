@@ -10,14 +10,18 @@ function executeOperation(address target, Operation op, address account, uint256
 
 Descriptor: [`example-tiered-executor.json`](./example-tiered-executor.json)
 
+All vectors are sent by `0x1111111111111111111111111111111111111111` to `0x0000000000000000000000000000000000001001` on Ethereum.
+
 ## Grant a reward
 
-`op` 1 becomes `grantReward(account, amount)` on `target`, shown with the reward vault's descriptor.
+Arguments:
 
-- Chain ID: 1
-- From: `0x1111111111111111111111111111111111111111`
-- To: `0x0000000000000000000000000000000000001001`
-- Value: 0 ETH
+```
+target: 0x0000000000000000000000000000000000001003
+op: 1
+account: 0xA11cea11CEA11CEA11cEa11CeA11ceA11CEA11Ce
+amount: 300000000000000000
+```
 
 Calldata:
 
@@ -36,12 +40,16 @@ Amount: 0.3 ETH
 
 ## Credit a legacy balance
 
-`op` 2 becomes `creditAccount(amount, account)` on `target`, with the arguments in the opposite order.
+`creditAccount` takes the arguments in the opposite order.
 
-- Chain ID: 1
-- From: `0x1111111111111111111111111111111111111111`
-- To: `0x0000000000000000000000000000000000001001`
-- Value: 0 ETH
+Arguments:
+
+```
+target: 0x0000000000000000000000000000000000001002
+op: 2
+account: 0xb0bB0bB0Bb0Bb0bB0Bb0bb0bb0bB0BB0Bb0BB0Bb
+amount: 2000000000000000000
+```
 
 Calldata:
 
@@ -60,12 +68,16 @@ Recipient: 0xb0bB0bB0Bb0Bb0bB0Bb0bb0bb0bB0BB0Bb0BB0Bb
 
 ## Target without a descriptor
 
-The wallet has no descriptor for `target`, so the reassembled call is shown with its raw arguments.
+The target has no descriptor.
 
-- Chain ID: 1
-- From: `0x1111111111111111111111111111111111111111`
-- To: `0x0000000000000000000000000000000000001001`
-- Value: 0 ETH
+Arguments:
+
+```
+target: 0xA11cea11CEA11CEA11cEa11CeA11ceA11CEA11Ce
+op: 1
+account: 0xb0bB0bB0Bb0Bb0bB0Bb0bb0bb0bB0BB0Bb0BB0Bb
+amount: 1000000000000000000
+```
 
 Calldata:
 
@@ -86,10 +98,14 @@ Argument 2: 1000000000000000000
 
 `op` 0 (`None`) is rejected.
 
-- Chain ID: 1
-- From: `0x1111111111111111111111111111111111111111`
-- To: `0x0000000000000000000000000000000000001001`
-- Value: 0 ETH
+Arguments:
+
+```
+target: 0x0000000000000000000000000000000000001003
+op: 0
+account: 0xA11cea11CEA11CEA11cEa11CeA11ceA11CEA11Ce
+amount: 1
+```
 
 Calldata:
 

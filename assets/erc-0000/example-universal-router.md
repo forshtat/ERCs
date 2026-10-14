@@ -9,12 +9,30 @@ function execute(bytes calldata commands, bytes[] calldata inputs, uint256 deadl
 
 Descriptor: [`example-universal-router.json`](./example-universal-router.json)
 
+All vectors are sent by `0x1111111111111111111111111111111111111111` to `0x66a9893cC07D91D95644AEDD05D03f95e1dBA8Af` on Ethereum.
+
 ## ETH to USDC: wrap ETH, then swap
 
-- Chain ID: 1
-- From: `0x1111111111111111111111111111111111111111`
-- To: `0x66a9893cC07D91D95644AEDD05D03f95e1dBA8Af`
-- Value: 1 ETH
+Arguments:
+
+```
+value: 1 ETH
+commands: 0x0b00
+inputs:
+  [0]: abi.encode(...)
+    recipient: 0x0000000000000000000000000000000000000002
+    amount: 1000000000000000000
+  [1]: abi.encode(...)
+    recipient: 0x0000000000000000000000000000000000000001
+    amountIn: 0x8000000000000000000000000000000000000000000000000000000000000000
+    amountOutMin: 2400000000
+    path: abi.encodePacked(...)
+      tokenIn: 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2
+      fee0: 500
+      token1: 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48
+    payerIsUser: false
+deadline: 1791892800
+```
 
 Calldata:
 
@@ -39,12 +57,37 @@ Valid until: 2026-10-13 12:00:00 UTC
 
 ## USDC to ETH with a Permit2 approval: permit, swap, unwrap
 
-The Permit2 signature is zeroed in this vector.
+The Permit2 signature is zeroed.
 
-- Chain ID: 1
-- From: `0x1111111111111111111111111111111111111111`
-- To: `0x66a9893cC07D91D95644AEDD05D03f95e1dBA8Af`
-- Value: 0 ETH
+Arguments:
+
+```
+commands: 0x0a000c
+inputs:
+  [0]: abi.encode(...)
+    permitSingle:
+      details:
+        token: 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48
+        amount: 0xffffffffffffffffffffffffffffffffffffffff
+        expiration: 1794484800
+        nonce: 0
+      spender: 0x66a9893cC07D91D95644AEDD05D03f95e1dBA8Af
+      sigDeadline: 1791892800
+    signature: 0x0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+  [1]: abi.encode(...)
+    recipient: 0x0000000000000000000000000000000000000002
+    amountIn: 1000000000
+    amountOutMin: 400000000000000000
+    path: abi.encodePacked(...)
+      tokenIn: 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48
+      fee0: 500
+      token1: 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2
+    payerIsUser: true
+  [2]: abi.encode(...)
+    recipient: 0x0000000000000000000000000000000000000001
+    amountMin: 400000000000000000
+deadline: 1791892800
+```
 
 Calldata:
 
@@ -73,10 +116,34 @@ Valid until: 2026-10-13 12:00:00 UTC
 
 ## DAI to USDT over three pools, with a 0.25% fee
 
-- Chain ID: 1
-- From: `0x1111111111111111111111111111111111111111`
-- To: `0x66a9893cC07D91D95644AEDD05D03f95e1dBA8Af`
-- Value: 0 ETH
+Arguments:
+
+```
+commands: 0x000604
+inputs:
+  [0]: abi.encode(...)
+    recipient: 0x0000000000000000000000000000000000000002
+    amountIn: 5000000000000000000000
+    amountOutMin: 4990000000
+    path: abi.encodePacked(...)
+      tokenIn: 0x6B175474E89094C44Da98b954EedeAC495271d0F
+      fee0: 100
+      token1: 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48
+      fee1: 500
+      token2: 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2
+      fee2: 500
+      token3: 0xdAC17F958D2ee523a2206206994597C13D831ec7
+    payerIsUser: true
+  [1]: abi.encode(...)
+    token: 0xdAC17F958D2ee523a2206206994597C13D831ec7
+    recipient: 0x000000fee13a103A10D593b9AE06b3e05F2E7E1c
+    bips: 25
+  [2]: abi.encode(...)
+    token: 0xdAC17F958D2ee523a2206206994597C13D831ec7
+    recipient: 0x0000000000000000000000000000000000000001
+    amountMin: 4977525000
+deadline: 1791892800
+```
 
 Calldata:
 
@@ -106,12 +173,23 @@ Valid until: 2026-10-13 12:00:00 UTC
 
 ## WBTC to WETH on Uniswap v2, recipient other than the sender
 
-The command byte is `0x88`: `V2_SWAP_EXACT_IN` (`0x08`) with the allow-revert flag (`0x80`), which the `0x3f` mask removes.
+Command byte `0x88` is `V2_SWAP_EXACT_IN` (`0x08`) with the allow-revert flag (`0x80`), which the `0x3f` mask removes.
 
-- Chain ID: 1
-- From: `0x1111111111111111111111111111111111111111`
-- To: `0x66a9893cC07D91D95644AEDD05D03f95e1dBA8Af`
-- Value: 0 ETH
+Arguments:
+
+```
+commands: 0x88
+inputs:
+  [0]: abi.encode(...)
+    recipient: 0xb0bB0bB0Bb0Bb0bB0Bb0bb0bb0bB0BB0Bb0BB0Bb
+    amountIn: 100000000
+    amountOutMin: 2500000000000000000
+    path:
+      [0]: 0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599
+      [1]: 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2
+    payerIsUser: true
+deadline: 1791892800
+```
 
 Calldata:
 

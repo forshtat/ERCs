@@ -8,12 +8,16 @@ function creditAccount(uint256 amount, address to) external;
 
 Descriptor: [`example-legacy-token.json`](./example-legacy-token.json)
 
+All vectors are sent by `0x1111111111111111111111111111111111111111` to `0x0000000000000000000000000000000000001002` on Ethereum.
+
 ## Credit a balance
 
-- Chain ID: 1
-- From: `0x1111111111111111111111111111111111111111`
-- To: `0x0000000000000000000000000000000000001002`
-- Value: 0 ETH
+Arguments:
+
+```
+amount: 2000000000000000000
+to: 0xb0bB0bB0Bb0Bb0bB0Bb0bb0bb0bB0BB0Bb0BB0Bb
+```
 
 Calldata:
 

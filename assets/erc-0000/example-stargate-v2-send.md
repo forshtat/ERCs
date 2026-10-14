@@ -23,12 +23,27 @@ function send(SendParam calldata _sendParam, MessagingFee calldata _fee, address
 
 Descriptor: [`example-stargate-v2-send.json`](./example-stargate-v2-send.json)
 
+All vectors are sent by `0x1111111111111111111111111111111111111111` to `0xc026395860Db2d07ee33e05fE50ed7bD583189C7` on Ethereum.
+
 ## Taxi to Arbitrum with default options
 
-- Chain ID: 1
-- From: `0x1111111111111111111111111111111111111111`
-- To: `0xc026395860Db2d07ee33e05fE50ed7bD583189C7`
-- Value: 0.0004 ETH
+Arguments:
+
+```
+value: 0.0004 ETH
+sendParam:
+  dstEid: 30110
+  to: 0x0000000000000000000000001111111111111111111111111111111111111111
+  amountLD: 1000000000
+  minAmountLD: 999500000
+  extraOptions: 0x
+  composeMsg: 0x
+  oftCmd: 0x
+fee:
+  nativeFee: 400000000000000
+  lzTokenFee: 0
+refundAddress: 0x1111111111111111111111111111111111111111
+```
 
 Calldata:
 
@@ -53,12 +68,38 @@ Fee refund to: 0x1111111111111111111111111111111111111111
 
 ## Taxi to Base with destination gas and a native drop
 
-`extraOptions` holds two executor records: `lzReceive` with gas and a zero value (32 bytes), and a native drop of 0.01 ETH to the recipient.
+Arguments:
 
-- Chain ID: 1
-- From: `0x1111111111111111111111111111111111111111`
-- To: `0xc026395860Db2d07ee33e05fE50ed7bD583189C7`
-- Value: 0.0009 ETH
+```
+value: 0.0009 ETH
+sendParam:
+  dstEid: 30184
+  to: 0x000000000000000000000000a11cea11cea11cea11cea11cea11cea11cea11ce
+  amountLD: 2500000000
+  minAmountLD: 2498000000
+  extraOptions: abi.encodePacked(...)
+    optionsType: 3
+    [0]: abi.encodePacked(...)
+      workerId: 0x01
+      size: 33
+      optionType: 0x01
+      option: abi.encodePacked(...)
+        gas: 200000
+        value: 0
+    [1]: abi.encodePacked(...)
+      workerId: 0x01
+      size: 49
+      optionType: 0x02
+      option: abi.encodePacked(...)
+        amount: 10000000000000000
+        receiver: 0x000000000000000000000000a11cea11cea11cea11cea11cea11cea11cea11ce
+  composeMsg: 0x
+  oftCmd: 0x
+fee:
+  nativeFee: 900000000000000
+  lzTokenFee: 0
+refundAddress: 0x1111111111111111111111111111111111111111
+```
 
 Calldata:
 
@@ -86,12 +127,33 @@ Fee refund to: 0x1111111111111111111111111111111111111111
 
 ## Bus to Base with a native drop
 
-`oftCmd` is one byte, which selects the bus. In bus mode Stargate only checks whether `extraOptions` is empty, so its contents are not shown.
+A non-empty `oftCmd` selects the bus, where `extraOptions` is only checked for being empty.
 
-- Chain ID: 1
-- From: `0x1111111111111111111111111111111111111111`
-- To: `0xc026395860Db2d07ee33e05fE50ed7bD583189C7`
-- Value: 0.0002 ETH
+Arguments:
+
+```
+value: 0.0002 ETH
+sendParam:
+  dstEid: 30184
+  to: 0x0000000000000000000000001111111111111111111111111111111111111111
+  amountLD: 500000000
+  minAmountLD: 499500000
+  extraOptions: abi.encodePacked(...)
+    optionsType: 3
+    [0]: abi.encodePacked(...)
+      workerId: 0x01
+      size: 49
+      optionType: 0x02
+      option: abi.encodePacked(...)
+        amount: 1000000000000000
+        receiver: 0x0000000000000000000000001111111111111111111111111111111111111111
+  composeMsg: 0x
+  oftCmd: 0x01
+fee:
+  nativeFee: 200000000000000
+  lzTokenFee: 0
+refundAddress: 0x1111111111111111111111111111111111111111
+```
 
 Calldata:
 
@@ -116,12 +178,34 @@ Fee refund to: 0x1111111111111111111111111111111111111111
 
 ## Taxi to Solana with a compose message
 
-A non-EVM recipient is shown as raw bytes. The compose message triggers a contract call on the destination chain.
+A non-EVM recipient is shown as raw bytes.
 
-- Chain ID: 1
-- From: `0x1111111111111111111111111111111111111111`
-- To: `0xc026395860Db2d07ee33e05fE50ed7bD583189C7`
-- Value: 0.0006 ETH
+Arguments:
+
+```
+value: 0.0006 ETH
+sendParam:
+  dstEid: 30168
+  to: 0x0b6c3f5a5f4e2d1c0b0a99887766554433221100ffeeddccbbaa998877665544
+  amountLD: 100000000
+  minAmountLD: 99500000
+  extraOptions: abi.encodePacked(...)
+    optionsType: 3
+    [0]: abi.encodePacked(...)
+      workerId: 0x01
+      size: 17
+      optionType: 0x01
+      option: abi.encodePacked(...)
+        gas: 300000
+  composeMsg: abi.encode(...)
+    address: 0xA11cea11CEA11CEA11cEa11CeA11ceA11CEA11Ce
+    uint256: 7
+  oftCmd: 0x
+fee:
+  nativeFee: 600000000000000
+  lzTokenFee: 0
+refundAddress: 0x1111111111111111111111111111111111111111
+```
 
 Calldata:
 

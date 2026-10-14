@@ -9,12 +9,45 @@ function multicall(bytes[] calldata data) external payable;
 
 Descriptor: [`example-balancer-relayer-multicall.json`](./example-balancer-relayer-multicall.json)
 
+All vectors are sent by `0x1111111111111111111111111111111111111111` to `0x35Cea9e57A393ac66Aaa7E25C391D52C74B5648f` on Ethereum.
+
 ## Approve the relayer and join a pool
 
-- Chain ID: 1
-- From: `0x1111111111111111111111111111111111111111`
-- To: `0x35Cea9e57A393ac66Aaa7E25C391D52C74B5648f`
-- Value: 1 ETH
+Arguments:
+
+```
+value: 1 ETH
+data:
+  [0]: setRelayerApproval(...)
+    relayer: 0x35Cea9e57A393ac66Aaa7E25C391D52C74B5648f
+    approved: true
+    authorisation: abi.encode(...)
+      deadline: 1791892800
+      v: 27
+      r: 0x1111111111111111111111111111111111111111111111111111111111111111
+      s: 0x2222222222222222222222222222222222222222222222222222222222222222
+  [1]: joinPool(...)
+    poolId: 0x5c6ee304399dbdb9c8ef030ab642b10820db8f56000200000000000000000014
+    kind: 0
+    sender: 0x1111111111111111111111111111111111111111
+    recipient: 0x1111111111111111111111111111111111111111
+    request:
+      assets:
+        [0]: 0xba100000625a3754423978a60c9317c58a424e3D
+        [1]: 0x0000000000000000000000000000000000000000
+      maxAmountsIn:
+        [0]: 1000000000000000000000
+        [1]: 1000000000000000000
+      userData: abi.encode(...)
+        joinKind: 1
+        amountsIn:
+          [0]: 1000000000000000000000
+          [1]: 1000000000000000000
+        minBptAmountOut: 250000000000000000000
+      fromInternalBalance: false
+    value: 1000000000000000000
+    outputReference: 0
+```
 
 Calldata:
 
@@ -47,12 +80,56 @@ Action 2: Add liquidity (DELEGATECALL)
 
 ## Move liquidity: exit one pool and join another with the WETH received
 
-The exit sends its tokens to the relayer and saves the WETH amount under chained reference `0xba10…01`. The join spends that amount, so it is not known when signing. Pool kind `3` (composable stable v2), exit kind `2` (`EXACT_BPT_IN_FOR_ALL_TOKENS_OUT`).
+Keys starting with `0xba1` are chained references: the exit saves its WETH output under `0xba10…01`, and the join spends it, so the amount is unknown when signing.
 
-- Chain ID: 1
-- From: `0x1111111111111111111111111111111111111111`
-- To: `0x35Cea9e57A393ac66Aaa7E25C391D52C74B5648f`
-- Value: 0 ETH
+Arguments:
+
+```
+data:
+  [0]: exitPool(...)
+    poolId: 0x93d199263632a4ef4bb438f1feb99e57b4b5f0bd0000000000000000000005c2
+    kind: 3
+    sender: 0x1111111111111111111111111111111111111111
+    recipient: 0x35Cea9e57A393ac66Aaa7E25C391D52C74B5648f
+    request:
+      assets:
+        [0]: 0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0
+        [1]: 0x93d199263632a4EF4Bb438F1feB99e57b4b5f0BD
+        [2]: 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2
+      minAmountsOut:
+        [0]: 0
+        [1]: 0
+        [2]: 4900000000000000000
+      userData: abi.encode(...)
+        exitKind: 2
+        bptAmountIn: 10000000000000000000
+      toInternalBalance: false
+    outputReferences:
+      [0]:
+        index: 2
+        key: 0xba10000000000000000000000000000000000000000000000000000000000001
+  [1]: joinPool(...)
+    poolId: 0x5c6ee304399dbdb9c8ef030ab642b10820db8f56000200000000000000000014
+    kind: 0
+    sender: 0x35Cea9e57A393ac66Aaa7E25C391D52C74B5648f
+    recipient: 0x1111111111111111111111111111111111111111
+    request:
+      assets:
+        [0]: 0xba100000625a3754423978a60c9317c58a424e3D
+        [1]: 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2
+      maxAmountsIn:
+        [0]: 0
+        [1]: 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+      userData: abi.encode(...)
+        joinKind: 1
+        amountsIn:
+          [0]: 0
+          [1]: 0xba10000000000000000000000000000000000000000000000000000000000001
+        minBptAmountOut: 10000000000000000000
+      fromInternalBalance: false
+    value: 0
+    outputReference: 0xba10000000000000000000000000000000000000000000000000000000000002
+```
 
 Calldata:
 
