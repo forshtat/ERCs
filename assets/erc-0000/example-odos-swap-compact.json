@@ -26,7 +26,9 @@
                 "fields": [
                     {
                         "path": "@.data",
-                        "customEncoding": {
+                        "label": "Swap",
+                        "format": "customEncoding",
+                        "params": {
                             "type": "object",
                             "entries": [
                                 {
@@ -43,8 +45,10 @@
                                                 "value": "0x0000000000000000000000000000000000000000"
                                             },
                                             "0x0001": {
-                                                "customEncoding": {
-                                                    "type": "address"
+                                                "format": "customEncoding",
+                                                "params": {
+                                                    "type": "address",
+                                                    "bytes": 20
                                                 }
                                             },
                                             "$default": "reject"
@@ -66,8 +70,10 @@
                                                 "value": "0x0000000000000000000000000000000000000000"
                                             },
                                             "0x0001": {
-                                                "customEncoding": {
-                                                    "type": "address"
+                                                "format": "customEncoding",
+                                                "params": {
+                                                    "type": "address",
+                                                    "bytes": 20
                                                 }
                                             },
                                             "$default": "reject"
@@ -92,193 +98,225 @@
                                         "cases": {
                                             "0x00": "reject",
                                             "0x01": {
-                                                "customEncoding": {
+                                                "format": "customEncoding",
+                                                "params": {
                                                     "type": "uint",
                                                     "bytes": 1
                                                 }
                                             },
                                             "0x02": {
-                                                "customEncoding": {
+                                                "format": "customEncoding",
+                                                "params": {
                                                     "type": "uint",
                                                     "bytes": 2
                                                 }
                                             },
                                             "0x03": {
-                                                "customEncoding": {
+                                                "format": "customEncoding",
+                                                "params": {
                                                     "type": "uint",
                                                     "bytes": 3
                                                 }
                                             },
                                             "0x04": {
-                                                "customEncoding": {
+                                                "format": "customEncoding",
+                                                "params": {
                                                     "type": "uint",
                                                     "bytes": 4
                                                 }
                                             },
                                             "0x05": {
-                                                "customEncoding": {
+                                                "format": "customEncoding",
+                                                "params": {
                                                     "type": "uint",
                                                     "bytes": 5
                                                 }
                                             },
                                             "0x06": {
-                                                "customEncoding": {
+                                                "format": "customEncoding",
+                                                "params": {
                                                     "type": "uint",
                                                     "bytes": 6
                                                 }
                                             },
                                             "0x07": {
-                                                "customEncoding": {
+                                                "format": "customEncoding",
+                                                "params": {
                                                     "type": "uint",
                                                     "bytes": 7
                                                 }
                                             },
                                             "0x08": {
-                                                "customEncoding": {
+                                                "format": "customEncoding",
+                                                "params": {
                                                     "type": "uint",
                                                     "bytes": 8
                                                 }
                                             },
                                             "0x09": {
-                                                "customEncoding": {
+                                                "format": "customEncoding",
+                                                "params": {
                                                     "type": "uint",
                                                     "bytes": 9
                                                 }
                                             },
                                             "0x0a": {
-                                                "customEncoding": {
+                                                "format": "customEncoding",
+                                                "params": {
                                                     "type": "uint",
                                                     "bytes": 10
                                                 }
                                             },
                                             "0x0b": {
-                                                "customEncoding": {
+                                                "format": "customEncoding",
+                                                "params": {
                                                     "type": "uint",
                                                     "bytes": 11
                                                 }
                                             },
                                             "0x0c": {
-                                                "customEncoding": {
+                                                "format": "customEncoding",
+                                                "params": {
                                                     "type": "uint",
                                                     "bytes": 12
                                                 }
                                             },
                                             "0x0d": {
-                                                "customEncoding": {
+                                                "format": "customEncoding",
+                                                "params": {
                                                     "type": "uint",
                                                     "bytes": 13
                                                 }
                                             },
                                             "0x0e": {
-                                                "customEncoding": {
+                                                "format": "customEncoding",
+                                                "params": {
                                                     "type": "uint",
                                                     "bytes": 14
                                                 }
                                             },
                                             "0x0f": {
-                                                "customEncoding": {
+                                                "format": "customEncoding",
+                                                "params": {
                                                     "type": "uint",
                                                     "bytes": 15
                                                 }
                                             },
                                             "0x10": {
-                                                "customEncoding": {
+                                                "format": "customEncoding",
+                                                "params": {
                                                     "type": "uint",
                                                     "bytes": 16
                                                 }
                                             },
                                             "0x11": {
-                                                "customEncoding": {
+                                                "format": "customEncoding",
+                                                "params": {
                                                     "type": "uint",
                                                     "bytes": 17
                                                 }
                                             },
                                             "0x12": {
-                                                "customEncoding": {
+                                                "format": "customEncoding",
+                                                "params": {
                                                     "type": "uint",
                                                     "bytes": 18
                                                 }
                                             },
                                             "0x13": {
-                                                "customEncoding": {
+                                                "format": "customEncoding",
+                                                "params": {
                                                     "type": "uint",
                                                     "bytes": 19
                                                 }
                                             },
                                             "0x14": {
-                                                "customEncoding": {
+                                                "format": "customEncoding",
+                                                "params": {
                                                     "type": "uint",
                                                     "bytes": 20
                                                 }
                                             },
                                             "0x15": {
-                                                "customEncoding": {
+                                                "format": "customEncoding",
+                                                "params": {
                                                     "type": "uint",
                                                     "bytes": 21
                                                 }
                                             },
                                             "0x16": {
-                                                "customEncoding": {
+                                                "format": "customEncoding",
+                                                "params": {
                                                     "type": "uint",
                                                     "bytes": 22
                                                 }
                                             },
                                             "0x17": {
-                                                "customEncoding": {
+                                                "format": "customEncoding",
+                                                "params": {
                                                     "type": "uint",
                                                     "bytes": 23
                                                 }
                                             },
                                             "0x18": {
-                                                "customEncoding": {
+                                                "format": "customEncoding",
+                                                "params": {
                                                     "type": "uint",
                                                     "bytes": 24
                                                 }
                                             },
                                             "0x19": {
-                                                "customEncoding": {
+                                                "format": "customEncoding",
+                                                "params": {
                                                     "type": "uint",
                                                     "bytes": 25
                                                 }
                                             },
                                             "0x1a": {
-                                                "customEncoding": {
+                                                "format": "customEncoding",
+                                                "params": {
                                                     "type": "uint",
                                                     "bytes": 26
                                                 }
                                             },
                                             "0x1b": {
-                                                "customEncoding": {
+                                                "format": "customEncoding",
+                                                "params": {
                                                     "type": "uint",
                                                     "bytes": 27
                                                 }
                                             },
                                             "0x1c": {
-                                                "customEncoding": {
+                                                "format": "customEncoding",
+                                                "params": {
                                                     "type": "uint",
                                                     "bytes": 28
                                                 }
                                             },
                                             "0x1d": {
-                                                "customEncoding": {
+                                                "format": "customEncoding",
+                                                "params": {
                                                     "type": "uint",
                                                     "bytes": 29
                                                 }
                                             },
                                             "0x1e": {
-                                                "customEncoding": {
+                                                "format": "customEncoding",
+                                                "params": {
                                                     "type": "uint",
                                                     "bytes": 30
                                                 }
                                             },
                                             "0x1f": {
-                                                "customEncoding": {
+                                                "format": "customEncoding",
+                                                "params": {
                                                     "type": "uint",
                                                     "bytes": 31
                                                 }
                                             },
                                             "0x20": {
-                                                "customEncoding": {
+                                                "format": "customEncoding",
+                                                "params": {
                                                     "type": "uint",
                                                     "bytes": 32
                                                 }
@@ -310,193 +348,225 @@
                                         "cases": {
                                             "0x00": "reject",
                                             "0x01": {
-                                                "customEncoding": {
+                                                "format": "customEncoding",
+                                                "params": {
                                                     "type": "uint",
                                                     "bytes": 1
                                                 }
                                             },
                                             "0x02": {
-                                                "customEncoding": {
+                                                "format": "customEncoding",
+                                                "params": {
                                                     "type": "uint",
                                                     "bytes": 2
                                                 }
                                             },
                                             "0x03": {
-                                                "customEncoding": {
+                                                "format": "customEncoding",
+                                                "params": {
                                                     "type": "uint",
                                                     "bytes": 3
                                                 }
                                             },
                                             "0x04": {
-                                                "customEncoding": {
+                                                "format": "customEncoding",
+                                                "params": {
                                                     "type": "uint",
                                                     "bytes": 4
                                                 }
                                             },
                                             "0x05": {
-                                                "customEncoding": {
+                                                "format": "customEncoding",
+                                                "params": {
                                                     "type": "uint",
                                                     "bytes": 5
                                                 }
                                             },
                                             "0x06": {
-                                                "customEncoding": {
+                                                "format": "customEncoding",
+                                                "params": {
                                                     "type": "uint",
                                                     "bytes": 6
                                                 }
                                             },
                                             "0x07": {
-                                                "customEncoding": {
+                                                "format": "customEncoding",
+                                                "params": {
                                                     "type": "uint",
                                                     "bytes": 7
                                                 }
                                             },
                                             "0x08": {
-                                                "customEncoding": {
+                                                "format": "customEncoding",
+                                                "params": {
                                                     "type": "uint",
                                                     "bytes": 8
                                                 }
                                             },
                                             "0x09": {
-                                                "customEncoding": {
+                                                "format": "customEncoding",
+                                                "params": {
                                                     "type": "uint",
                                                     "bytes": 9
                                                 }
                                             },
                                             "0x0a": {
-                                                "customEncoding": {
+                                                "format": "customEncoding",
+                                                "params": {
                                                     "type": "uint",
                                                     "bytes": 10
                                                 }
                                             },
                                             "0x0b": {
-                                                "customEncoding": {
+                                                "format": "customEncoding",
+                                                "params": {
                                                     "type": "uint",
                                                     "bytes": 11
                                                 }
                                             },
                                             "0x0c": {
-                                                "customEncoding": {
+                                                "format": "customEncoding",
+                                                "params": {
                                                     "type": "uint",
                                                     "bytes": 12
                                                 }
                                             },
                                             "0x0d": {
-                                                "customEncoding": {
+                                                "format": "customEncoding",
+                                                "params": {
                                                     "type": "uint",
                                                     "bytes": 13
                                                 }
                                             },
                                             "0x0e": {
-                                                "customEncoding": {
+                                                "format": "customEncoding",
+                                                "params": {
                                                     "type": "uint",
                                                     "bytes": 14
                                                 }
                                             },
                                             "0x0f": {
-                                                "customEncoding": {
+                                                "format": "customEncoding",
+                                                "params": {
                                                     "type": "uint",
                                                     "bytes": 15
                                                 }
                                             },
                                             "0x10": {
-                                                "customEncoding": {
+                                                "format": "customEncoding",
+                                                "params": {
                                                     "type": "uint",
                                                     "bytes": 16
                                                 }
                                             },
                                             "0x11": {
-                                                "customEncoding": {
+                                                "format": "customEncoding",
+                                                "params": {
                                                     "type": "uint",
                                                     "bytes": 17
                                                 }
                                             },
                                             "0x12": {
-                                                "customEncoding": {
+                                                "format": "customEncoding",
+                                                "params": {
                                                     "type": "uint",
                                                     "bytes": 18
                                                 }
                                             },
                                             "0x13": {
-                                                "customEncoding": {
+                                                "format": "customEncoding",
+                                                "params": {
                                                     "type": "uint",
                                                     "bytes": 19
                                                 }
                                             },
                                             "0x14": {
-                                                "customEncoding": {
+                                                "format": "customEncoding",
+                                                "params": {
                                                     "type": "uint",
                                                     "bytes": 20
                                                 }
                                             },
                                             "0x15": {
-                                                "customEncoding": {
+                                                "format": "customEncoding",
+                                                "params": {
                                                     "type": "uint",
                                                     "bytes": 21
                                                 }
                                             },
                                             "0x16": {
-                                                "customEncoding": {
+                                                "format": "customEncoding",
+                                                "params": {
                                                     "type": "uint",
                                                     "bytes": 22
                                                 }
                                             },
                                             "0x17": {
-                                                "customEncoding": {
+                                                "format": "customEncoding",
+                                                "params": {
                                                     "type": "uint",
                                                     "bytes": 23
                                                 }
                                             },
                                             "0x18": {
-                                                "customEncoding": {
+                                                "format": "customEncoding",
+                                                "params": {
                                                     "type": "uint",
                                                     "bytes": 24
                                                 }
                                             },
                                             "0x19": {
-                                                "customEncoding": {
+                                                "format": "customEncoding",
+                                                "params": {
                                                     "type": "uint",
                                                     "bytes": 25
                                                 }
                                             },
                                             "0x1a": {
-                                                "customEncoding": {
+                                                "format": "customEncoding",
+                                                "params": {
                                                     "type": "uint",
                                                     "bytes": 26
                                                 }
                                             },
                                             "0x1b": {
-                                                "customEncoding": {
+                                                "format": "customEncoding",
+                                                "params": {
                                                     "type": "uint",
                                                     "bytes": 27
                                                 }
                                             },
                                             "0x1c": {
-                                                "customEncoding": {
+                                                "format": "customEncoding",
+                                                "params": {
                                                     "type": "uint",
                                                     "bytes": 28
                                                 }
                                             },
                                             "0x1d": {
-                                                "customEncoding": {
+                                                "format": "customEncoding",
+                                                "params": {
                                                     "type": "uint",
                                                     "bytes": 29
                                                 }
                                             },
                                             "0x1e": {
-                                                "customEncoding": {
+                                                "format": "customEncoding",
+                                                "params": {
                                                     "type": "uint",
                                                     "bytes": 30
                                                 }
                                             },
                                             "0x1f": {
-                                                "customEncoding": {
+                                                "format": "customEncoding",
+                                                "params": {
                                                     "type": "uint",
                                                     "bytes": 31
                                                 }
                                             },
                                             "0x20": {
-                                                "customEncoding": {
+                                                "format": "customEncoding",
+                                                "params": {
                                                     "type": "uint",
                                                     "bytes": 32
                                                 }
@@ -533,8 +603,10 @@
                                                 "value": "0x0000000000000000000000000000000000000000"
                                             },
                                             "0x0001": {
-                                                "customEncoding": {
-                                                    "type": "address"
+                                                "format": "customEncoding",
+                                                "params": {
+                                                    "type": "address",
+                                                    "bytes": 20
                                                 }
                                             },
                                             "$default": "reject"
@@ -557,8 +629,10 @@
                                                 "valueFrom": "~.executor"
                                             },
                                             "0x0001": {
-                                                "customEncoding": {
-                                                    "type": "address"
+                                                "format": "customEncoding",
+                                                "params": {
+                                                    "type": "address",
+                                                    "bytes": 20
                                                 }
                                             },
                                             "$default": "reject"
@@ -581,8 +655,10 @@
                                                 "valueFrom": "@.from"
                                             },
                                             "0x0001": {
-                                                "customEncoding": {
-                                                    "type": "address"
+                                                "format": "customEncoding",
+                                                "params": {
+                                                    "type": "address",
+                                                    "bytes": 20
                                                 }
                                             },
                                             "$default": "reject"

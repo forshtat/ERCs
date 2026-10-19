@@ -45,7 +45,8 @@
                 "fields": [
                     {
                         "path": "@.data",
-                        "customEncoding": {
+                        "format": "customEncoding",
+                        "params": {
                             "type": "object",
                             "entries": [
                                 {
@@ -178,7 +179,8 @@
                 "fields": [
                     {
                         "path": "@.data",
-                        "customEncoding": {
+                        "format": "customEncoding",
+                        "params": {
                             "type": "object",
                             "entries": [
                                 {
@@ -210,9 +212,9 @@
                                 },
                                 {
                                     "name": "sendingAssetId",
-                                    "offset": 12,
                                     "schema": {
-                                        "type": "address"
+                                        "type": "address",
+                                        "bytes": 32
                                     },
                                     "label": "Token sent",
                                     "format": "addressName"
@@ -399,14 +401,15 @@
                 "fields": [
                     {
                         "path": "sendingAssetId",
-                        "customEncoding": {
+                        "format": "customEncoding",
+                        "params": {
                             "type": "object",
                             "entries": [
                                 {
                                     "name": "token",
-                                    "offset": 12,
                                     "schema": {
-                                        "type": "address"
+                                        "type": "address",
+                                        "bytes": 32
                                     },
                                     "label": "Token sent",
                                     "format": "addressName"

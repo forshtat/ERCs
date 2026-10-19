@@ -41,7 +41,9 @@
                 "fields": [
                     {
                         "path": "mode",
-                        "customEncoding": {
+                        "label": "Mode",
+                        "format": "customEncoding",
+                        "params": {
                             "type": "object",
                             "entries": [
                                 {
@@ -101,13 +103,15 @@
                             },
                             "cases": {
                                 "0x00": {
-                                    "customEncoding": {
+                                    "format": "customEncoding",
+                                    "params": {
                                         "type": "object",
                                         "entries": [
                                             {
                                                 "name": "target",
                                                 "schema": {
-                                                    "type": "address"
+                                                    "type": "address",
+                                                    "bytes": 20
                                                 }
                                             },
                                             {
@@ -150,13 +154,15 @@
                                     }
                                 },
                                 "0xff": {
-                                    "customEncoding": {
+                                    "format": "customEncoding",
+                                    "params": {
                                         "type": "object",
                                         "entries": [
                                             {
                                                 "name": "target",
                                                 "schema": {
-                                                    "type": "address"
+                                                    "type": "address",
+                                                    "bytes": 20
                                                 }
                                             },
                                             {

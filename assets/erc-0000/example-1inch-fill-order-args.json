@@ -26,14 +26,15 @@
                 "fields": [
                     {
                         "path": "order.maker",
-                        "customEncoding": {
+                        "format": "customEncoding",
+                        "params": {
                             "type": "object",
                             "entries": [
                                 {
                                     "name": "account",
-                                    "offset": 12,
                                     "schema": {
-                                        "type": "address"
+                                        "type": "address",
+                                        "bytes": 32
                                     },
                                     "label": "Maker",
                                     "format": "addressName"
@@ -43,14 +44,15 @@
                     },
                     {
                         "path": "order.makerAsset",
-                        "customEncoding": {
+                        "format": "customEncoding",
+                        "params": {
                             "type": "object",
                             "entries": [
                                 {
                                     "name": "token",
-                                    "offset": 12,
                                     "schema": {
-                                        "type": "address"
+                                        "type": "address",
+                                        "bytes": 32
                                     },
                                     "label": "You receive",
                                     "format": "tokenTicker"
@@ -60,14 +62,15 @@
                     },
                     {
                         "path": "order.takerAsset",
-                        "customEncoding": {
+                        "format": "customEncoding",
+                        "params": {
                             "type": "object",
                             "entries": [
                                 {
                                     "name": "token",
-                                    "offset": 12,
                                     "schema": {
-                                        "type": "address"
+                                        "type": "address",
+                                        "bytes": 32
                                     },
                                     "label": "You pay",
                                     "format": "tokenTicker"
@@ -93,7 +96,8 @@
                     },
                     {
                         "path": "takerTraits",
-                        "customEncoding": {
+                        "format": "customEncoding",
+                        "params": {
                             "type": "bitfield",
                             "bytes": 32,
                             "bitranges": [
@@ -171,7 +175,9 @@
                     },
                     {
                         "path": "args",
-                        "customEncoding": {
+                        "label": "Order arguments",
+                        "format": "customEncoding",
+                        "params": {
                             "type": "object",
                             "entries": [
                                 {
@@ -188,8 +194,10 @@
                                                 "valueFrom": "@.from"
                                             },
                                             "$default": {
-                                                "customEncoding": {
-                                                    "type": "address"
+                                                "format": "customEncoding",
+                                                "params": {
+                                                    "type": "address",
+                                                    "bytes": 20
                                                 }
                                             }
                                         }

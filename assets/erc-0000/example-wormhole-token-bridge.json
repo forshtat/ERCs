@@ -26,7 +26,9 @@
                 "fields": [
                     {
                         "path": "encodedVm",
-                        "customEncoding": {
+                        "label": "Signed message (VAA)",
+                        "format": "customEncoding",
+                        "params": {
                             "type": "object",
                             "entries": [
                                 {
@@ -86,7 +88,8 @@
                                         "expression": { "type": "uint", "bytes": 1 },
                                         "cases": {
                                             "0x01": {
-                                                "customEncoding": {
+                                                "format": "customEncoding",
+                                                "params": {
                                                     "type": "object",
                                                     "entries": [
                                                         {
@@ -107,8 +110,7 @@
                                                         },
                                                         {
                                                             "name": "to",
-                                                            "offset": 12,
-                                                            "schema": { "type": "address" },
+                                                            "schema": { "type": "address", "bytes": 32 },
                                                             "label": "Recipient",
                                                             "format": "addressName"
                                                         },

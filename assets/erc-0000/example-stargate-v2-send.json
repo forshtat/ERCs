@@ -70,7 +70,8 @@
                                     "format": "raw"
                                 },
                                 "$default": {
-                                    "customEncoding": {
+                                    "format": "customEncoding",
+                                    "params": {
                                         "type": "object",
                                         "entries": [
                                             {
@@ -88,7 +89,8 @@
                                             {
                                                 "name": "address",
                                                 "schema": {
-                                                    "type": "address"
+                                                    "type": "address",
+                                                    "bytes": 20
                                                 },
                                                 "label": "Recipient",
                                                 "format": "addressName"
@@ -134,7 +136,8 @@
                                                 "label": "Default"
                                             },
                                             "$default": {
-                                                "customEncoding": {
+                                                "format": "customEncoding",
+                                                "params": {
                                                     "type": "object",
                                                     "entries": [
                                                         {
@@ -161,7 +164,8 @@
                                                                     },
                                                                     "cases": {
                                                                         "0x01": {
-                                                                            "customEncoding": {
+                                                                            "format": "customEncoding",
+                                                                            "params": {
                                                                                 "type": "object",
                                                                                 "entries": [
                                                                                     {
@@ -176,7 +180,8 @@
                                                                                         "schema": {
                                                                                             "type": "bytes",
                                                                                             "lengthFrom": "size",
-                                                                                            "customEncoding": {
+                                                                                            "format": "customEncoding",
+                                                                                            "params": {
                                                                                                 "type": "switch",
                                                                                                 "expression": {
                                                                                                     "type": "uint",
@@ -184,14 +189,16 @@
                                                                                                 },
                                                                                                 "cases": {
                                                                                                     "0x01": {
-                                                                                                        "customEncoding": {
+                                                                                                        "format": "customEncoding",
+                                                                                                        "params": {
                                                                                                             "type": "switch",
                                                                                                             "expression": {
                                                                                                                 "lengthOf": "~"
                                                                                                             },
                                                                                                             "cases": {
                                                                                                                 "16": {
-                                                                                                                    "customEncoding": {
+                                                                                                                    "format": "customEncoding",
+                                                                                                                    "params": {
                                                                                                                         "type": "object",
                                                                                                                         "entries": [
                                                                                                                             {
@@ -207,7 +214,8 @@
                                                                                                                     }
                                                                                                                 },
                                                                                                                 "32": {
-                                                                                                                    "customEncoding": {
+                                                                                                                    "format": "customEncoding",
+                                                                                                                    "params": {
                                                                                                                         "type": "object",
                                                                                                                         "entries": [
                                                                                                                             {
@@ -236,7 +244,8 @@
                                                                                                         }
                                                                                                     },
                                                                                                     "0x02": {
-                                                                                                        "customEncoding": {
+                                                                                                        "format": "customEncoding",
+                                                                                                        "params": {
                                                                                                             "type": "object",
                                                                                                             "entries": [
                                                                                                                 {
@@ -261,14 +270,16 @@
                                                                                                         }
                                                                                                     },
                                                                                                     "0x03": {
-                                                                                                        "customEncoding": {
+                                                                                                        "format": "customEncoding",
+                                                                                                        "params": {
                                                                                                             "type": "switch",
                                                                                                             "expression": {
                                                                                                                 "lengthOf": "~"
                                                                                                             },
                                                                                                             "cases": {
                                                                                                                 "18": {
-                                                                                                                    "customEncoding": {
+                                                                                                                    "format": "customEncoding",
+                                                                                                                    "params": {
                                                                                                                         "type": "object",
                                                                                                                         "entries": [
                                                                                                                             {
@@ -291,7 +302,8 @@
                                                                                                                     }
                                                                                                                 },
                                                                                                                 "34": {
-                                                                                                                    "customEncoding": {
+                                                                                                                    "format": "customEncoding",
+                                                                                                                    "params": {
                                                                                                                         "type": "object",
                                                                                                                         "entries": [
                                                                                                                             {
@@ -327,7 +339,8 @@
                                                                                                         }
                                                                                                     },
                                                                                                     "$default": {
-                                                                                                        "customEncoding": {
+                                                                                                        "format": "customEncoding",
+                                                                                                        "params": {
                                                                                                             "type": "bytes",
                                                                                                             "toEnd": true
                                                                                                         }
@@ -340,7 +353,8 @@
                                                                             }
                                                                         },
                                                                         "0x02": {
-                                                                            "customEncoding": {
+                                                                            "format": "customEncoding",
+                                                                            "params": {
                                                                                 "type": "object",
                                                                                 "entries": [
                                                                                     {

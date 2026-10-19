@@ -26,14 +26,17 @@
                 "fields": [
                     {
                         "path": "unlockData",
-                        "customEncoding": {
+                        "label": "Actions",
+                        "format": "customEncoding",
+                        "params": {
                             "type": "abi",
                             "entries": [
                                 {
                                     "name": "actions",
                                     "schema": {
                                         "type": "bytes",
-                                        "customEncoding": {
+                                        "format": "customEncoding",
+                                        "params": {
                                             "type": "sequence",
                                             "element": { "type": "uint", "bytes": 1 }
                                         }
@@ -80,7 +83,8 @@
                                 "0x02": {
                                     "intent": "Mint position",
                                     "interpolatedIntent": "Mint a position with up to {amount0Max} and {amount1Max}",
-                                    "customEncoding": {
+                                    "format": "customEncoding",
+                                    "params": {
                                         "type": "abi",
                                         "entries": [
                                             {
@@ -88,11 +92,11 @@
                                                 "schema": {
                                                     "type": "abi",
                                                     "entries": [
-                                                        { "name": "currency0", "schema": { "type": "address" }, "label": "Token 0", "format": "addressName" },
-                                                        { "name": "currency1", "schema": { "type": "address" }, "label": "Token 1", "format": "addressName" },
+                                                        { "name": "currency0", "schema": { "type": "address", "bytes": 32 }, "label": "Token 0", "format": "addressName" },
+                                                        { "name": "currency1", "schema": { "type": "address", "bytes": 32 }, "label": "Token 1", "format": "addressName" },
                                                         { "name": "fee", "schema": { "type": "uint", "bytes": 3 }, "label": "Fee", "format": "unit", "params": { "base": "%", "decimals": 4 } },
                                                         { "name": "tickSpacing", "schema": { "type": "int", "bytes": 3 } },
-                                                        { "name": "hooks", "schema": { "type": "address" }, "label": "Hooks", "format": "addressName" }
+                                                        { "name": "hooks", "schema": { "type": "address", "bytes": 32 }, "label": "Hooks", "format": "addressName" }
                                                     ]
                                                 }
                                             },
@@ -113,7 +117,7 @@
                                                 "format": "tokenAmount",
                                                 "params": { "tokenPath": "~.poolKey.currency1", "nativeCurrencyAddress": "0x0000000000000000000000000000000000000000" }
                                             },
-                                            { "name": "owner", "schema": { "type": "address" }, "label": "Position owner", "format": "addressName", "params": { "senderAddress": "0x0000000000000000000000000000000000000001" } },
+                                            { "name": "owner", "schema": { "type": "address", "bytes": 32 }, "label": "Position owner", "format": "addressName", "params": { "senderAddress": "0x0000000000000000000000000000000000000001" } },
                                             { "name": "hookData", "schema": { "type": "bytes" } }
                                         ]
                                     }

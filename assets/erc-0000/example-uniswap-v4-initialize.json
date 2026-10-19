@@ -67,7 +67,9 @@
                     },
                     {
                         "path": "key.hooks",
-                        "customEncoding": {
+                        "label": "Hook permissions",
+                        "format": "customEncoding",
+                        "params": {
                             "type": "bitfield",
                             "bytes": 20,
                             "bitranges": [

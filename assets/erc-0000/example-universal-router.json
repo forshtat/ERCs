@@ -26,7 +26,9 @@
                 "fields": [
                     {
                         "path": "commands",
-                        "customEncoding": {
+                        "label": "Commands",
+                        "format": "customEncoding",
+                        "params": {
                             "type": "sequence",
                             "element": {
                                 "type": "uint",
