@@ -1,0 +1,185 @@
+{
+    "$schema": "https://eips.ethereum.org/assets/eip-7730/erc7730-non-abi-dispatch.schema.json",
+    "context": {
+        "$id": "Uniswap v4 PositionManager",
+        "contract": {
+            "deployments": [
+                {
+                    "chainId": 1,
+                    "address": "0xbD216513d74C8cf14cf4747E6AaA6420FF64ee9e"
+                }
+            ]
+        }
+    },
+    "metadata": {
+        "owner": "Uniswap Labs",
+        "contractName": "PositionManager",
+        "info": {
+            "url": "https://github.com/Uniswap/v4-periphery"
+        }
+    },
+    "display": {
+        "formats": {
+            "modifyLiquidities(bytes unlockData,uint256 deadline)": {
+                "$id": "Modify Liquidities",
+                "intent": "Manage liquidity",
+                "fields": [
+                    {
+                        "path": "unlockData",
+                        "label": "Actions",
+                        "format": "customEncoding",
+                        "params": {
+                            "type": "abi",
+                            "entries": [
+                                {
+                                    "name": "actions",
+                                    "schema": {
+                                        "type": "bytes",
+                                        "format": "customEncoding",
+                                        "params": {
+                                            "type": "sequence",
+                                            "element": { "type": "uint", "bytes": 1 }
+                                        }
+                                    }
+                                },
+                                {
+                                    "name": "params",
+                                    "schema": {
+                                        "type": "array",
+                                        "element": { "type": "bytes" }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        "path": "unlockData.params.[]",
+                        "label": "Action",
+                        "switch": {
+                            "expression": { "path": "unlockData.actions.[$index]" },
+                            "cases": {
+                                "0x00": {
+                                    "(uint256 tokenId,uint256 liquidity,uint128 amount0Max,uint128 amount1Max,bytes hookData)": {
+                                        "intent": "Add liquidity",
+                                        "fields": [
+                                            { "path": "tokenId", "label": "Position", "format": "raw" },
+                                            { "path": "liquidity", "label": "Liquidity", "format": "raw" },
+                                            { "path": "amount0Max", "label": "Maximum token 0", "format": "raw" },
+                                            { "path": "amount1Max", "label": "Maximum token 1", "format": "raw" }
+                                        ]
+                                    }
+                                },
+                                "0x01": {
+                                    "(uint256 tokenId,uint256 liquidity,uint128 amount0Min,uint128 amount1Min,bytes hookData)": {
+                                        "intent": "Remove liquidity",
+                                        "fields": [
+                                            { "path": "tokenId", "label": "Position", "format": "raw" },
+                                            { "path": "liquidity", "label": "Liquidity", "format": "raw" },
+                                            { "path": "amount0Min", "label": "Minimum token 0", "format": "raw" },
+                                            { "path": "amount1Min", "label": "Minimum token 1", "format": "raw" }
+                                        ]
+                                    }
+                                },
+                                "0x02": {
+                                    "intent": "Mint position",
+                                    "interpolatedIntent": "Mint a position with up to {amount0Max} and {amount1Max}",
+                                    "format": "customEncoding",
+                                    "params": {
+                                        "type": "abi",
+                                        "entries": [
+                                            {
+                                                "name": "poolKey",
+                                                "schema": {
+                                                    "type": "abi",
+                                                    "entries": [
+                                                        { "name": "currency0", "schema": { "type": "address", "bytes": 32 }, "label": "Token 0", "format": "addressName" },
+                                                        { "name": "currency1", "schema": { "type": "address", "bytes": 32 }, "label": "Token 1", "format": "addressName" },
+                                                        { "name": "fee", "schema": { "type": "uint", "bytes": 3 }, "label": "Fee", "format": "unit", "params": { "base": "%", "decimals": 4 } },
+                                                        { "name": "tickSpacing", "schema": { "type": "int", "bytes": 3 } },
+                                                        { "name": "hooks", "schema": { "type": "address", "bytes": 32 }, "label": "Hooks", "format": "addressName" }
+                                                    ]
+                                                }
+                                            },
+                                            { "name": "tickLower", "schema": { "type": "int", "bytes": 3 }, "label": "Lower tick", "format": "raw" },
+                                            { "name": "tickUpper", "schema": { "type": "int", "bytes": 3 }, "label": "Upper tick", "format": "raw" },
+                                            { "name": "liquidity", "schema": { "type": "uint", "bytes": 32 } },
+                                            {
+                                                "name": "amount0Max",
+                                                "schema": { "type": "uint", "bytes": 16 },
+                                                "label": "Maximum token 0",
+                                                "format": "tokenAmount",
+                                                "params": { "tokenPath": "~.poolKey.currency0", "nativeCurrencyAddress": "0x0000000000000000000000000000000000000000" }
+                                            },
+                                            {
+                                                "name": "amount1Max",
+                                                "schema": { "type": "uint", "bytes": 16 },
+                                                "label": "Maximum token 1",
+                                                "format": "tokenAmount",
+                                                "params": { "tokenPath": "~.poolKey.currency1", "nativeCurrencyAddress": "0x0000000000000000000000000000000000000000" }
+                                            },
+                                            { "name": "owner", "schema": { "type": "address", "bytes": 32 }, "label": "Position owner", "format": "addressName", "params": { "senderAddress": "0x0000000000000000000000000000000000000001" } },
+                                            { "name": "hookData", "schema": { "type": "bytes" } }
+                                        ]
+                                    }
+                                },
+                                "0x03": {
+                                    "(uint256 tokenId,uint128 amount0Min,uint128 amount1Min,bytes hookData)": {
+                                        "intent": "Close position",
+                                        "fields": [
+                                            { "path": "tokenId", "label": "Position", "format": "raw" },
+                                            { "path": "amount0Min", "label": "Minimum token 0", "format": "raw" },
+                                            { "path": "amount1Min", "label": "Minimum token 1", "format": "raw" }
+                                        ]
+                                    }
+                                },
+                                "0x0d": {
+                                    "(address currency0,address currency1)": {
+                                        "intent": "Pay tokens",
+                                        "fields": [
+                                            { "path": "currency0", "label": "Token 0", "format": "addressName" },
+                                            { "path": "currency1", "label": "Token 1", "format": "addressName" }
+                                        ]
+                                    }
+                                },
+                                "0x11": {
+                                    "(address currency0,address currency1,address recipient)": {
+                                        "intent": "Receive tokens",
+                                        "fields": [
+                                            { "path": "currency0", "label": "Token 0", "format": "addressName" },
+                                            { "path": "currency1", "label": "Token 1", "format": "addressName" },
+                                            { "path": "recipient", "label": "Recipient", "format": "addressName", "params": { "senderAddress": "0x0000000000000000000000000000000000000001" } }
+                                        ]
+                                    }
+                                },
+                                "0x12": {
+                                    "(address currency)": {
+                                        "intent": "Settle token balance",
+                                        "fields": [
+                                            { "path": "currency", "label": "Token", "format": "addressName" }
+                                        ]
+                                    }
+                                },
+                                "0x14": {
+                                    "(address currency,address to)": {
+                                        "intent": "Return leftover tokens",
+                                        "fields": [
+                                            { "path": "currency", "label": "Token", "format": "addressName" },
+                                            { "path": "to", "label": "Recipient", "format": "addressName", "params": { "senderAddress": "0x0000000000000000000000000000000000000001" } }
+                                        ]
+                                    }
+                                },
+                                "$default": "reject"
+                            }
+                        }
+                    },
+                    {
+                        "path": "deadline",
+                        "label": "Deadline",
+                        "format": "date",
+                        "params": { "encoding": "timestamp" }
+                    }
+                ]
+            }
+        }
+    }
+}

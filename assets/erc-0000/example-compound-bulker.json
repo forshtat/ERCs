@@ -25,11 +25,11 @@
                 "intent": "Execute batch",
                 "fields": [
                     {
-                        "path": "data[]",
-                        "label": "Batched action",
+                        "path": "data.[]",
+                        "label": "Action",
                         "switch": {
                             "expression": {
-                                "path": "actions[$index]"
+                                "path": "actions.[$index]"
                             },
                             "cases": {
                                 "0x414354494f4e5f535550504c595f415353455400000000000000000000000000": {

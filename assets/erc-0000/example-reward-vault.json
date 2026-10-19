@@ -6,7 +6,7 @@
             "deployments": [
                 {
                     "chainId": 1,
-                    "address": "0xYourRewardVaultAddress"
+                    "address": "0x0000000000000000000000000000000000001003"
                 }
             ]
         }

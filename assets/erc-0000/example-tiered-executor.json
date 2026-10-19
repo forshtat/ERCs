@@ -6,7 +6,7 @@
             "deployments": [
                 {
                     "chainId": 1,
-                    "address": "0xYourTieredExecutorAddress"
+                    "address": "0x0000000000000000000000000000000000001001"
                 }
             ]
         }
@@ -30,7 +30,7 @@
                         "path": "op"
                     },
                     "cases": {
-                        "1": {
+                        "0x01": {
                             "interaction": {
                                 "to": "target",
                                 "signature": "grantReward(address,uint256)",
@@ -44,7 +44,7 @@
                                 ]
                             }
                         },
-                        "2": {
+                        "0x02": {
                             "interaction": {
                                 "to": "target",
                                 "signature": "creditAccount(uint256,address)",

@@ -25,8 +25,8 @@
                 "intent": "Execute batch",
                 "fields": [
                     {
-                        "path": "data[]",
-                        "label": "Batched relayer action",
+                        "path": "data.[]",
+                        "label": "Action",
                         "format": "calldata",
                         "params": {
                             "callee": "0xeA66501dF1A00261E3bB79D1E90444fc6A186B62",

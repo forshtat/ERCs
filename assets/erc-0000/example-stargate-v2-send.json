@@ -1,0 +1,438 @@
+{
+    "$schema": "https://eips.ethereum.org/assets/eip-7730/erc7730-non-abi-dispatch.schema.json",
+    "context": {
+        "$id": "Stargate V2 USDC Pool",
+        "contract": {
+            "deployments": [
+                {
+                    "chainId": 1,
+                    "address": "0xc026395860Db2d07ee33e05fE50ed7bD583189C7"
+                }
+            ]
+        }
+    },
+    "metadata": {
+        "owner": "Stargate",
+        "contractName": "StargatePoolUSDC",
+        "info": {
+            "url": "https://github.com/stargate-protocol/stargate-v2"
+        },
+        "enums": {
+            "endpointId": {
+                "30101": "Ethereum",
+                "30109": "Polygon",
+                "30110": "Arbitrum",
+                "30111": "Optimism",
+                "30168": "Solana",
+                "30184": "Base"
+            }
+        }
+    },
+    "display": {
+        "formats": {
+            "send((uint32 dstEid,bytes32 to,uint256 amountLD,uint256 minAmountLD,bytes extraOptions,bytes composeMsg,bytes oftCmd) sendParam,(uint256 nativeFee,uint256 lzTokenFee) fee,address refundAddress)": {
+                "$id": "Stargate Send",
+                "intent": "Bridge USDC",
+                "fields": [
+                    {
+                        "path": "sendParam.amountLD",
+                        "label": "Amount",
+                        "format": "tokenAmount",
+                        "params": {
+                            "token": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
+                        }
+                    },
+                    {
+                        "path": "sendParam.minAmountLD",
+                        "label": "Minimum received",
+                        "format": "tokenAmount",
+                        "params": {
+                            "token": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
+                        }
+                    },
+                    {
+                        "path": "sendParam.dstEid",
+                        "label": "Destination",
+                        "format": "enum",
+                        "params": {
+                            "$ref": "$.metadata.enums.endpointId"
+                        }
+                    },
+                    {
+                        "path": "sendParam.to",
+                        "label": "Recipient",
+                        "switch": {
+                            "expression": {
+                                "path": "sendParam.dstEid"
+                            },
+                            "cases": {
+                                "30168": {
+                                    "format": "raw"
+                                },
+                                "$default": {
+                                    "format": "customEncoding",
+                                    "params": {
+                                        "type": "object",
+                                        "entries": [
+                                            {
+                                                "name": "padding",
+                                                "schema": {
+                                                    "type": "bytes",
+                                                    "length": 12
+                                                },
+                                                "visible": {
+                                                    "mustMatch": [
+                                                        "0x000000000000000000000000"
+                                                    ]
+                                                }
+                                            },
+                                            {
+                                                "name": "address",
+                                                "schema": {
+                                                    "type": "address",
+                                                    "bytes": 20
+                                                },
+                                                "label": "Recipient",
+                                                "format": "addressName"
+                                            }
+                                        ]
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    {
+                        "path": "sendParam.oftCmd",
+                        "label": "Delivery",
+                        "switch": {
+                            "expression": {
+                                "lengthOf": "sendParam.oftCmd"
+                            },
+                            "cases": {
+                                "0": {
+                                    "label": "Immediate (taxi)"
+                                },
+                                "$default": {
+                                    "label": "Batched (bus)"
+                                }
+                            }
+                        }
+                    },
+                    {
+                        "path": "sendParam.extraOptions",
+                        "label": "Delivery options",
+                        "switch": {
+                            "expression": {
+                                "lengthOf": "sendParam.oftCmd"
+                            },
+                            "cases": {
+                                "0": {
+                                    "switch": {
+                                        "expression": {
+                                            "lengthOf": "sendParam.extraOptions"
+                                        },
+                                        "cases": {
+                                            "0": {
+                                                "label": "Default"
+                                            },
+                                            "$default": {
+                                                "format": "customEncoding",
+                                                "params": {
+                                                    "type": "object",
+                                                    "entries": [
+                                                        {
+                                                            "name": "optionsType",
+                                                            "schema": {
+                                                                "type": "uint",
+                                                                "bytes": 2
+                                                            },
+                                                            "visible": {
+                                                                "mustMatch": [
+                                                                    3
+                                                                ]
+                                                            }
+                                                        },
+                                                        {
+                                                            "name": "records",
+                                                            "schema": {
+                                                                "type": "sequence",
+                                                                "element": {
+                                                                    "type": "switch",
+                                                                    "expression": {
+                                                                        "type": "uint",
+                                                                        "bytes": 1
+                                                                    },
+                                                                    "cases": {
+                                                                        "0x01": {
+                                                                            "format": "customEncoding",
+                                                                            "params": {
+                                                                                "type": "object",
+                                                                                "entries": [
+                                                                                    {
+                                                                                        "name": "size",
+                                                                                        "schema": {
+                                                                                            "type": "uint",
+                                                                                            "bytes": 2
+                                                                                        }
+                                                                                    },
+                                                                                    {
+                                                                                        "name": "option",
+                                                                                        "schema": {
+                                                                                            "type": "bytes",
+                                                                                            "lengthFrom": "size",
+                                                                                            "format": "customEncoding",
+                                                                                            "params": {
+                                                                                                "type": "switch",
+                                                                                                "expression": {
+                                                                                                    "type": "uint",
+                                                                                                    "bytes": 1
+                                                                                                },
+                                                                                                "cases": {
+                                                                                                    "0x01": {
+                                                                                                        "format": "customEncoding",
+                                                                                                        "params": {
+                                                                                                            "type": "switch",
+                                                                                                            "expression": {
+                                                                                                                "lengthOf": "~"
+                                                                                                            },
+                                                                                                            "cases": {
+                                                                                                                "16": {
+                                                                                                                    "format": "customEncoding",
+                                                                                                                    "params": {
+                                                                                                                        "type": "object",
+                                                                                                                        "entries": [
+                                                                                                                            {
+                                                                                                                                "name": "gas",
+                                                                                                                                "schema": {
+                                                                                                                                    "type": "uint",
+                                                                                                                                    "bytes": 16
+                                                                                                                                },
+                                                                                                                                "label": "Destination gas",
+                                                                                                                                "format": "raw"
+                                                                                                                            }
+                                                                                                                        ]
+                                                                                                                    }
+                                                                                                                },
+                                                                                                                "32": {
+                                                                                                                    "format": "customEncoding",
+                                                                                                                    "params": {
+                                                                                                                        "type": "object",
+                                                                                                                        "entries": [
+                                                                                                                            {
+                                                                                                                                "name": "gas",
+                                                                                                                                "schema": {
+                                                                                                                                    "type": "uint",
+                                                                                                                                    "bytes": 16
+                                                                                                                                },
+                                                                                                                                "label": "Destination gas",
+                                                                                                                                "format": "raw"
+                                                                                                                            },
+                                                                                                                            {
+                                                                                                                                "name": "value",
+                                                                                                                                "schema": {
+                                                                                                                                    "type": "uint",
+                                                                                                                                    "bytes": 16
+                                                                                                                                },
+                                                                                                                                "label": "Value on arrival (wei)",
+                                                                                                                                "format": "raw"
+                                                                                                                            }
+                                                                                                                        ]
+                                                                                                                    }
+                                                                                                                },
+                                                                                                                "$default": "reject"
+                                                                                                            }
+                                                                                                        }
+                                                                                                    },
+                                                                                                    "0x02": {
+                                                                                                        "format": "customEncoding",
+                                                                                                        "params": {
+                                                                                                            "type": "object",
+                                                                                                            "entries": [
+                                                                                                                {
+                                                                                                                    "name": "amount",
+                                                                                                                    "schema": {
+                                                                                                                        "type": "uint",
+                                                                                                                        "bytes": 16
+                                                                                                                    },
+                                                                                                                    "label": "Native drop (wei)",
+                                                                                                                    "format": "raw"
+                                                                                                                },
+                                                                                                                {
+                                                                                                                    "name": "receiver",
+                                                                                                                    "schema": {
+                                                                                                                        "type": "bytes",
+                                                                                                                        "length": 32
+                                                                                                                    },
+                                                                                                                    "label": "Native drop recipient",
+                                                                                                                    "format": "raw"
+                                                                                                                }
+                                                                                                            ]
+                                                                                                        }
+                                                                                                    },
+                                                                                                    "0x03": {
+                                                                                                        "format": "customEncoding",
+                                                                                                        "params": {
+                                                                                                            "type": "switch",
+                                                                                                            "expression": {
+                                                                                                                "lengthOf": "~"
+                                                                                                            },
+                                                                                                            "cases": {
+                                                                                                                "18": {
+                                                                                                                    "format": "customEncoding",
+                                                                                                                    "params": {
+                                                                                                                        "type": "object",
+                                                                                                                        "entries": [
+                                                                                                                            {
+                                                                                                                                "name": "index",
+                                                                                                                                "schema": {
+                                                                                                                                    "type": "uint",
+                                                                                                                                    "bytes": 2
+                                                                                                                                }
+                                                                                                                            },
+                                                                                                                            {
+                                                                                                                                "name": "gas",
+                                                                                                                                "schema": {
+                                                                                                                                    "type": "uint",
+                                                                                                                                    "bytes": 16
+                                                                                                                                },
+                                                                                                                                "label": "Compose gas",
+                                                                                                                                "format": "raw"
+                                                                                                                            }
+                                                                                                                        ]
+                                                                                                                    }
+                                                                                                                },
+                                                                                                                "34": {
+                                                                                                                    "format": "customEncoding",
+                                                                                                                    "params": {
+                                                                                                                        "type": "object",
+                                                                                                                        "entries": [
+                                                                                                                            {
+                                                                                                                                "name": "index",
+                                                                                                                                "schema": {
+                                                                                                                                    "type": "uint",
+                                                                                                                                    "bytes": 2
+                                                                                                                                }
+                                                                                                                            },
+                                                                                                                            {
+                                                                                                                                "name": "gas",
+                                                                                                                                "schema": {
+                                                                                                                                    "type": "uint",
+                                                                                                                                    "bytes": 16
+                                                                                                                                },
+                                                                                                                                "label": "Compose gas",
+                                                                                                                                "format": "raw"
+                                                                                                                            },
+                                                                                                                            {
+                                                                                                                                "name": "value",
+                                                                                                                                "schema": {
+                                                                                                                                    "type": "uint",
+                                                                                                                                    "bytes": 16
+                                                                                                                                },
+                                                                                                                                "label": "Compose value (wei)",
+                                                                                                                                "format": "raw"
+                                                                                                                            }
+                                                                                                                        ]
+                                                                                                                    }
+                                                                                                                },
+                                                                                                                "$default": "reject"
+                                                                                                            }
+                                                                                                        }
+                                                                                                    },
+                                                                                                    "$default": {
+                                                                                                        "format": "customEncoding",
+                                                                                                        "params": {
+                                                                                                            "type": "bytes",
+                                                                                                            "toEnd": true
+                                                                                                        }
+                                                                                                    }
+                                                                                                }
+                                                                                            }
+                                                                                        }
+                                                                                    }
+                                                                                ]
+                                                                            }
+                                                                        },
+                                                                        "0x02": {
+                                                                            "format": "customEncoding",
+                                                                            "params": {
+                                                                                "type": "object",
+                                                                                "entries": [
+                                                                                    {
+                                                                                        "name": "size",
+                                                                                        "schema": {
+                                                                                            "type": "uint",
+                                                                                            "bytes": 2
+                                                                                        }
+                                                                                    },
+                                                                                    {
+                                                                                        "name": "dvnOption",
+                                                                                        "schema": {
+                                                                                            "type": "bytes",
+                                                                                            "lengthFrom": "size"
+                                                                                        }
+                                                                                    }
+                                                                                ]
+                                                                            }
+                                                                        },
+                                                                        "$default": "reject"
+                                                                    }
+                                                                }
+                                                            }
+                                                        }
+                                                    ]
+                                                }
+                                            }
+                                        }
+                                    }
+                                },
+                                "$default": {
+                                    "switch": {
+                                        "expression": {
+                                            "lengthOf": "sendParam.extraOptions"
+                                        },
+                                        "cases": {
+                                            "0": {
+                                                "label": "None"
+                                            },
+                                            "$default": {
+                                                "label": "Native drop on arrival, amount set by the bus"
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    {
+                        "path": "sendParam.composeMsg",
+                        "label": "Destination call",
+                        "switch": {
+                            "expression": {
+                                "lengthOf": "sendParam.composeMsg"
+                            },
+                            "cases": {
+                                "0": {
+                                    "label": "None"
+                                },
+                                "$default": {
+                                    "label": "Calls a contract on the destination chain",
+                                    "intent": "warning"
+                                }
+                            }
+                        }
+                    },
+                    {
+                        "path": "fee.nativeFee",
+                        "label": "Messaging fee",
+                        "format": "amount"
+                    },
+                    {
+                        "path": "refundAddress",
+                        "label": "Fee refund to",
+                        "format": "addressName"
+                    }
+                ]
+            }
+        }
+    }
+}

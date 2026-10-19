@@ -20,6 +20,17 @@
         "contractName": "Nexus",
         "info": {
             "url": "https://github.com/bcnmy/nexus"
+        },
+        "enums": {
+            "callType": {
+                "0": "Single call",
+                "1": "Batch call",
+                "255": "Delegatecall"
+            },
+            "execType": {
+                "0": "Revert on failure",
+                "1": "Continue on failure"
+            }
         }
     },
     "display": {
@@ -40,6 +51,11 @@
                                     "schema": {
                                         "type": "uint",
                                         "bytes": 1
+                                    },
+                                    "label": "Call type",
+                                    "format": "enum",
+                                    "params": {
+                                        "$ref": "$.metadata.enums.callType"
                                     }
                                 },
                                 {
@@ -47,6 +63,11 @@
                                     "schema": {
                                         "type": "uint",
                                         "bytes": 1
+                                    },
+                                    "label": "Execution type",
+                                    "format": "enum",
+                                    "params": {
+                                        "$ref": "$.metadata.enums.execType"
                                     }
                                 },
                                 {
@@ -106,7 +127,7 @@
                                                     "type": "bytes",
                                                     "toEnd": true
                                                 },
-                                                "label": "Execution",
+                                                "label": "Call",
                                                 "format": "calldata",
                                                 "params": {
                                                     "calleePath": "~.target",
@@ -122,7 +143,7 @@
                                         "fields": [
                                             {
                                                 "path": "~.[].callData",
-                                                "label": "Batched call data",
+                                                "label": "Call",
                                                 "format": "calldata",
                                                 "params": {
                                                     "calleePath": "~.[].target",
@@ -150,7 +171,7 @@
                                                     "type": "bytes",
                                                     "toEnd": true
                                                 },
-                                                "label": "Execution",
+                                                "label": "Call",
                                                 "format": "calldata",
                                                 "params": {
                                                     "calleePath": "~.target",

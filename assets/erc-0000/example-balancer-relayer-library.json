@@ -1,0 +1,450 @@
+{
+    "$schema": "https://eips.ethereum.org/assets/eip-7730/erc7730-non-abi-dispatch.schema.json",
+    "context": {
+        "$id": "Balancer Batch Relayer Library",
+        "contract": {
+            "deployments": [
+                {
+                    "chainId": 1,
+                    "address": "0xeA66501dF1A00261E3bB79D1E90444fc6A186B62"
+                }
+            ]
+        }
+    },
+    "metadata": {
+        "owner": "Balancer",
+        "contractName": "BatchRelayerLibrary",
+        "info": {
+            "url": "https://docs-v2.balancer.fi/concepts/advanced/relayers.html"
+        }
+    },
+    "display": {
+        "formats": {
+            "setRelayerApproval(address relayer,bool approved,bytes authorisation)": {
+                "$id": "Balancer Relayer Approval",
+                "intent": "Set relayer approval",
+                "fields": [
+                    {
+                        "path": "relayer",
+                        "label": "Relayer",
+                        "format": "addressName"
+                    },
+                    {
+                        "path": "approved",
+                        "label": "Approved",
+                        "format": "raw"
+                    },
+                    {
+                        "path": "authorisation",
+                        "label": "Signed authorization",
+                        "format": "customEncoding",
+                        "params": {
+                            "type": "abi",
+                            "entries": [
+                                {
+                                    "name": "deadline",
+                                    "schema": {
+                                        "type": "uint",
+                                        "bytes": 32
+                                    },
+                                    "label": "Signature valid until",
+                                    "format": "date",
+                                    "params": {
+                                        "encoding": "timestamp"
+                                    }
+                                },
+                                {
+                                    "name": "v",
+                                    "schema": {
+                                        "type": "uint",
+                                        "bytes": 1
+                                    }
+                                },
+                                {
+                                    "name": "r",
+                                    "schema": {
+                                        "type": "bytes",
+                                        "length": 32
+                                    }
+                                },
+                                {
+                                    "name": "s",
+                                    "schema": {
+                                        "type": "bytes",
+                                        "length": 32
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                ]
+            },
+            "joinPool(bytes32 poolId,uint8 kind,address sender,address recipient,(address[] assets,uint256[] maxAmountsIn,bytes userData,bool fromInternalBalance) request,uint256 value,uint256 outputReference)": {
+                "$id": "Balancer Relayer Join Pool",
+                "intent": "Add liquidity",
+                "fields": [
+                    {
+                        "path": "poolId",
+                        "label": "Pool",
+                        "format": "customEncoding",
+                        "params": {
+                            "type": "object",
+                            "entries": [
+                                {
+                                    "name": "poolAddress",
+                                    "schema": {
+                                        "type": "address",
+                                        "bytes": 20
+                                    },
+                                    "label": "Pool",
+                                    "format": "addressName"
+                                },
+                                {
+                                    "name": "specialization",
+                                    "schema": {
+                                        "type": "uint",
+                                        "bytes": 2
+                                    }
+                                },
+                                {
+                                    "name": "nonce",
+                                    "schema": {
+                                        "type": "uint",
+                                        "bytes": 10
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        "path": "sender",
+                        "label": "From",
+                        "format": "addressName"
+                    },
+                    {
+                        "path": "recipient",
+                        "label": "Recipient",
+                        "format": "addressName"
+                    },
+                    {
+                        "path": "request.userData",
+                        "label": "Join",
+                        "switch": {
+                            "expression": {
+                                "path": "kind"
+                            },
+                            "cases": {
+                                "0x00": {
+                                    "switch": {
+                                        "expression": {
+                                            "path": "request.userData.[0:32]"
+                                        },
+                                        "cases": {
+                                            "0x01": {
+                                                "(uint8 joinKind,uint256[] amountsIn,uint256 minBptAmountOut)": {
+                                                    "intent": "Add exact tokens",
+                                                    "fields": [
+                                                        {
+                                                            "path": "amountsIn.[]",
+                                                            "label": "Amount in",
+                                                            "format": "customEncoding",
+                                                            "params": {
+                                                                "type": "switch",
+                                                                "expression": {
+                                                                    "type": "uint",
+                                                                    "bytes": 32,
+                                                                    "mask": "0xfff0000000000000000000000000000000000000000000000000000000000000"
+                                                                },
+                                                                "cases": {
+                                                                    "0xba10000000000000000000000000000000000000000000000000000000000000": {
+                                                                        "label": "Set by an earlier step in this transaction"
+                                                                    },
+                                                                    "$default": {
+                                                                        "format": "tokenAmount",
+                                                                        "params": {
+                                                                            "tokenPath": "#.request.assets.[]",
+                                                                            "nativeCurrencyAddress": "0x0000000000000000000000000000000000000000"
+                                                                        }
+                                                                    }
+                                                                }
+                                                            }
+                                                        },
+                                                        {
+                                                            "path": "minBptAmountOut",
+                                                            "label": "Minimum pool tokens out",
+                                                            "format": "tokenAmount",
+                                                            "params": {
+                                                                "tokenPath": "#.poolId.poolAddress"
+                                                            }
+                                                        }
+                                                    ]
+                                                }
+                                            },
+                                            "$default": "reject"
+                                        }
+                                    }
+                                },
+                                "$default": "reject"
+                            }
+                        }
+                    },
+                    {
+                        "path": "request.fromInternalBalance",
+                        "label": "Pay from Vault internal balance",
+                        "format": "raw"
+                    },
+                    {
+                        "path": "value",
+                        "label": "ETH sent",
+                        "format": "amount"
+                    },
+                    {
+                        "path": "outputReference",
+                        "label": "Pool tokens out",
+                        "format": "customEncoding",
+                        "params": {
+                            "type": "switch",
+                            "expression": {
+                                "type": "uint",
+                                "bytes": 32,
+                                "mask": "0xfff0000000000000000000000000000000000000000000000000000000000000"
+                            },
+                            "cases": {
+                                "0xba10000000000000000000000000000000000000000000000000000000000000": {
+                                    "label": "Saved for a later step in this transaction"
+                                },
+                                "$default": {
+                                    "label": "Not saved"
+                                }
+                            }
+                        }
+                    }
+                ]
+            },
+            "exitPool(bytes32 poolId,uint8 kind,address sender,address recipient,(address[] assets,uint256[] minAmountsOut,bytes userData,bool toInternalBalance) request,(uint256 index,uint256 key)[] outputReferences)": {
+                "$id": "Balancer Relayer Exit Pool",
+                "intent": "Remove liquidity",
+                "fields": [
+                    {
+                        "path": "poolId",
+                        "label": "Pool",
+                        "format": "customEncoding",
+                        "params": {
+                            "type": "object",
+                            "entries": [
+                                {
+                                    "name": "poolAddress",
+                                    "schema": {
+                                        "type": "address",
+                                        "bytes": 20
+                                    },
+                                    "label": "Pool",
+                                    "format": "addressName"
+                                },
+                                {
+                                    "name": "specialization",
+                                    "schema": {
+                                        "type": "uint",
+                                        "bytes": 2
+                                    }
+                                },
+                                {
+                                    "name": "nonce",
+                                    "schema": {
+                                        "type": "uint",
+                                        "bytes": 10
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        "path": "sender",
+                        "label": "From",
+                        "format": "addressName"
+                    },
+                    {
+                        "path": "recipient",
+                        "label": "Recipient",
+                        "format": "addressName"
+                    },
+                    {
+                        "path": "request.minAmountsOut.[]",
+                        "label": "Minimum amount out",
+                        "format": "tokenAmount",
+                        "params": {
+                            "tokenPath": "request.assets.[]",
+                            "nativeCurrencyAddress": "0x0000000000000000000000000000000000000000"
+                        }
+                    },
+                    {
+                        "path": "request.userData",
+                        "label": "Exit",
+                        "switch": {
+                            "expression": {
+                                "path": "request.userData.[0:32]"
+                            },
+                            "cases": {
+                                "0xff": {
+                                    "(uint8 exitKind,uint256 bptAmountIn)": {
+                                        "intent": "Remove liquidity in recovery mode",
+                                        "fields": [
+                                            {
+                                                "path": "bptAmountIn",
+                                                "label": "Pool tokens in",
+                                                "format": "customEncoding",
+                                                "params": {
+                                                    "type": "switch",
+                                                    "expression": {
+                                                        "type": "uint",
+                                                        "bytes": 32,
+                                                        "mask": "0xfff0000000000000000000000000000000000000000000000000000000000000"
+                                                    },
+                                                    "cases": {
+                                                        "0xba10000000000000000000000000000000000000000000000000000000000000": {
+                                                            "label": "Set by an earlier step in this transaction"
+                                                        },
+                                                        "$default": {
+                                                            "format": "tokenAmount",
+                                                            "params": {
+                                                                "tokenPath": "#.poolId.poolAddress",
+                                                                "nativeCurrencyAddress": "0x0000000000000000000000000000000000000000"
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        ]
+                                    }
+                                },
+                                "$default": {
+                                    "switch": {
+                                        "expression": {
+                                            "path": "kind"
+                                        },
+                                        "cases": {
+                                            "0x00": {
+                                                "switch": {
+                                                    "expression": {
+                                                        "path": "request.userData.[0:32]"
+                                                    },
+                                                    "cases": {
+                                                        "0x01": {
+                                                            "(uint8 exitKind,uint256 bptAmountIn)": {
+                                                                "intent": "Remove liquidity proportionally",
+                                                                "fields": [
+                                                                    {
+                                                                        "path": "bptAmountIn",
+                                                                        "label": "Pool tokens in",
+                                                                        "format": "customEncoding",
+                                                                        "params": {
+                                                                            "type": "switch",
+                                                                            "expression": {
+                                                                                "type": "uint",
+                                                                                "bytes": 32,
+                                                                                "mask": "0xfff0000000000000000000000000000000000000000000000000000000000000"
+                                                                            },
+                                                                            "cases": {
+                                                                                "0xba10000000000000000000000000000000000000000000000000000000000000": {
+                                                                                    "label": "Set by an earlier step in this transaction"
+                                                                                },
+                                                                                "$default": {
+                                                                                    "format": "tokenAmount",
+                                                                                    "params": {
+                                                                                        "tokenPath": "#.poolId.poolAddress",
+                                                                                        "nativeCurrencyAddress": "0x0000000000000000000000000000000000000000"
+                                                                                    }
+                                                                                }
+                                                                            }
+                                                                        }
+                                                                    }
+                                                                ]
+                                                            }
+                                                        },
+                                                        "$default": "reject"
+                                                    }
+                                                }
+                                            },
+                                            "0x03": {
+                                                "switch": {
+                                                    "expression": {
+                                                        "path": "request.userData.[0:32]"
+                                                    },
+                                                    "cases": {
+                                                        "0x02": {
+                                                            "(uint8 exitKind,uint256 bptAmountIn)": {
+                                                                "intent": "Remove liquidity proportionally",
+                                                                "fields": [
+                                                                    {
+                                                                        "path": "bptAmountIn",
+                                                                        "label": "Pool tokens in",
+                                                                        "format": "customEncoding",
+                                                                        "params": {
+                                                                            "type": "switch",
+                                                                            "expression": {
+                                                                                "type": "uint",
+                                                                                "bytes": 32,
+                                                                                "mask": "0xfff0000000000000000000000000000000000000000000000000000000000000"
+                                                                            },
+                                                                            "cases": {
+                                                                                "0xba10000000000000000000000000000000000000000000000000000000000000": {
+                                                                                    "label": "Set by an earlier step in this transaction"
+                                                                                },
+                                                                                "$default": {
+                                                                                    "format": "tokenAmount",
+                                                                                    "params": {
+                                                                                        "tokenPath": "#.poolId.poolAddress",
+                                                                                        "nativeCurrencyAddress": "0x0000000000000000000000000000000000000000"
+                                                                                    }
+                                                                                }
+                                                                            }
+                                                                        }
+                                                                    }
+                                                                ]
+                                                            }
+                                                        },
+                                                        "$default": "reject"
+                                                    }
+                                                }
+                                            },
+                                            "$default": "reject"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    {
+                        "path": "request.toInternalBalance",
+                        "label": "Receive to Vault internal balance",
+                        "format": "raw"
+                    },
+                    {
+                        "path": "outputReferences.[].index",
+                        "label": "Saved token index",
+                        "format": "raw"
+                    },
+                    {
+                        "path": "outputReferences.[].key",
+                        "label": "Saved as",
+                        "format": "customEncoding",
+                        "params": {
+                            "type": "switch",
+                            "expression": {
+                                "type": "uint",
+                                "bytes": 32,
+                                "mask": "0xfff0000000000000000000000000000000000000000000000000000000000000"
+                            },
+                            "cases": {
+                                "0xba10000000000000000000000000000000000000000000000000000000000000": {
+                                    "label": "Reference for a later step in this transaction"
+                                },
+                                "$default": "reject"
+                            }
+                        }
+                    }
+                ]
+            }
+        }
+    }
+}

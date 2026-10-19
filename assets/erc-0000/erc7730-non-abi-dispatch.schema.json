@@ -1407,7 +1407,13 @@
                     "$ref": "#/$customEncoding/uint"
                 },
                 {
+                    "$ref": "#/$customEncoding/int"
+                },
+                {
                     "$ref": "#/$customEncoding/bytes"
+                },
+                {
+                    "$ref": "#/$customEncoding/string"
                 },
                 {
                     "$ref": "#/$customEncoding/address"
@@ -1416,10 +1422,184 @@
                     "$ref": "#/$customEncoding/bool"
                 },
                 {
+                    "$ref": "#/$customEncoding/bitfield"
+                },
+                {
                     "$ref": "#/$customEncoding/object"
                 },
                 {
                     "$ref": "#/$customEncoding/sequence"
+                },
+                {
+                    "$ref": "#/$customEncoding/switchNode"
+                },
+                {
+                    "$ref": "#/$customEncoding/abi"
+                }
+            ]
+        },
+        "abi": {
+            "title": "Standard ABI-encoded values, decoded as abi.decode(buffer, (T1, ..., Tn)) with the types of the entries; as an entry's schema, a tuple",
+            "type": "object",
+            "properties": {
+                "type": {
+                    "const": "abi"
+                },
+                "entries": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "name": {
+                                "type": "string",
+                                "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+                            },
+                            "schema": {
+                                "$ref": "#/$customEncoding/abiType"
+                            },
+                            "visible": {
+                                "$ref": "#/$format/rules"
+                            },
+                            "label": {
+                                "type": "string"
+                            },
+                            "format": {
+                                "$ref": "#/$format/names"
+                            },
+                            "params": {
+                                "type": "object"
+                            }
+                        },
+                        "required": [
+                            "name",
+                            "schema"
+                        ],
+                        "additionalProperties": false
+                    }
+                }
+            },
+            "required": [
+                "type",
+                "entries"
+            ],
+            "additionalProperties": false
+        },
+        "abiType": {
+            "title": "The type of an abi entry or array element",
+            "oneOf": [
+                {
+                    "$ref": "#/$customEncoding/address"
+                },
+                {
+                    "$ref": "#/$customEncoding/bool"
+                },
+                {
+                    "title": "uintN, with N = 8 * bytes",
+                    "type": "object",
+                    "properties": {
+                        "type": {
+                            "const": "uint"
+                        },
+                        "bytes": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 32
+                        }
+                    },
+                    "required": [
+                        "type",
+                        "bytes"
+                    ],
+                    "additionalProperties": false
+                },
+                {
+                    "title": "intN, with N = 8 * bytes",
+                    "type": "object",
+                    "properties": {
+                        "type": {
+                            "const": "int"
+                        },
+                        "bytes": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 32
+                        }
+                    },
+                    "required": [
+                        "type",
+                        "bytes"
+                    ],
+                    "additionalProperties": false
+                },
+                {
+                    "title": "bytesN with length N, or dynamic bytes without length",
+                    "type": "object",
+                    "properties": {
+                        "type": {
+                            "const": "bytes"
+                        },
+                        "length": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 32
+                        },
+                        "format": {
+                            "const": "customEncoding"
+                        },
+                        "params": {
+                            "description": "Decodes the contents of these bytes as their own buffer. The nested node MUST consume all of them.",
+                            "$ref": "#/$customEncoding/node"
+                        }
+                    },
+                    "required": [
+                        "type"
+                    ],
+                    "additionalProperties": false,
+                    "dependentRequired": {
+                        "format": [
+                            "params"
+                        ],
+                        "params": [
+                            "format"
+                        ]
+                    }
+                },
+                {
+                    "title": "string",
+                    "type": "object",
+                    "properties": {
+                        "type": {
+                            "const": "string"
+                        }
+                    },
+                    "required": [
+                        "type"
+                    ],
+                    "additionalProperties": false
+                },
+                {
+                    "title": "T[N] with count N, or T[] without count",
+                    "type": "object",
+                    "properties": {
+                        "type": {
+                            "const": "array"
+                        },
+                        "element": {
+                            "$ref": "#/$customEncoding/abiType"
+                        },
+                        "count": {
+                            "type": "integer",
+                            "minimum": 1
+                        }
+                    },
+                    "required": [
+                        "type",
+                        "element"
+                    ],
+                    "additionalProperties": false
+                },
+                {
+                    "$ref": "#/$customEncoding/abi"
                 }
             ]
         },
@@ -1451,11 +1631,92 @@
             ],
             "additionalProperties": false
         },
+        "int": {
+            "title": "Two's complement signed integer of the given width",
+            "type": "object",
+            "properties": {
+                "type": {
+                    "const": "int"
+                },
+                "bytes": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 32
+                },
+                "endian": {
+                    "enum": [
+                        "be",
+                        "le"
+                    ]
+                }
+            },
+            "required": [
+                "type",
+                "bytes"
+            ],
+            "additionalProperties": false
+        },
         "bytes": {
             "type": "object",
             "properties": {
                 "type": {
                     "const": "bytes"
+                },
+                "length": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "lengthFrom": {
+                    "type": "string"
+                },
+                "toEnd": {
+                    "description": "If true, the node consumes all remaining bytes of its buffer, so it MUST be the last entry of its enclosing object.",
+                    "const": true
+                },
+                "format": {
+                    "const": "customEncoding"
+                },
+                "params": {
+                    "description": "Decodes the bytes of this node as their own buffer. The nested node MUST consume all of them.",
+                    "$ref": "#/$customEncoding/node"
+                }
+            },
+            "required": [
+                "type"
+            ],
+            "additionalProperties": false,
+            "oneOf": [
+                {
+                    "required": [
+                        "length"
+                    ]
+                },
+                {
+                    "required": [
+                        "lengthFrom"
+                    ]
+                },
+                {
+                    "required": [
+                        "toEnd"
+                    ]
+                }
+            ],
+            "dependentRequired": {
+                "format": [
+                    "params"
+                ],
+                "params": [
+                    "format"
+                ]
+            }
+        },
+        "string": {
+            "title": "UTF-8 text, with trailing zero bytes removed when the width is fixed",
+            "type": "object",
+            "properties": {
+                "type": {
+                    "const": "string"
                 },
                 "length": {
                     "type": "integer",
@@ -1519,6 +1780,126 @@
             },
             "required": [
                 "type"
+            ],
+            "additionalProperties": false
+        },
+        "bitfield": {
+            "type": "object",
+            "properties": {
+                "type": {
+                    "const": "bitfield"
+                },
+                "bytes": {
+                    "description": "Width of the value in bytes. Exactly one of `bytes` and `bitwidth` MUST be present.",
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 32
+                },
+                "bitwidth": {
+                    "description": "Width of the value in bits. The node consumes ceil(bitwidth / 8) bytes; the unused most significant bits are padding. Exactly one of `bytes` and `bitwidth` MUST be present.",
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 256
+                },
+                "endian": {
+                    "enum": [
+                        "be",
+                        "le"
+                    ]
+                },
+                "bitranges": {
+                    "type": "array",
+                    "items": {
+                        "oneOf": [
+                            {
+                                "type": "object",
+                                "properties": {
+                                    "name": {
+                                        "type": "string",
+                                        "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+                                    },
+                                    "bit": {
+                                        "type": "integer",
+                                        "minimum": 0
+                                    },
+                                    "label": {
+                                        "type": "string"
+                                    },
+                                    "format": {
+                                        "$ref": "#/$customEncoding/entryFormat"
+                                    },
+                                    "params": {
+                                        "type": "object"
+                                    },
+                                    "visible": {
+                                        "$ref": "#/$format/rules"
+                                    }
+                                },
+                                "required": [
+                                    "name",
+                                    "bit"
+                                ],
+                                "additionalProperties": false
+                            },
+                            {
+                                "type": "object",
+                                "properties": {
+                                    "name": {
+                                        "type": "string",
+                                        "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+                                    },
+                                    "bits": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "integer",
+                                            "minimum": 0
+                                        },
+                                        "minItems": 2,
+                                        "maxItems": 2
+                                    },
+                                    "signed": {
+                                        "description": "If true, the bit range is decoded as a two's complement signed integer instead of an unsigned one.",
+                                        "type": "boolean",
+                                        "default": false
+                                    },
+                                    "label": {
+                                        "type": "string"
+                                    },
+                                    "format": {
+                                        "$ref": "#/$customEncoding/entryFormat"
+                                    },
+                                    "params": {
+                                        "type": "object"
+                                    },
+                                    "visible": {
+                                        "$ref": "#/$format/rules"
+                                    }
+                                },
+                                "required": [
+                                    "name",
+                                    "bits"
+                                ],
+                                "additionalProperties": false
+                            }
+                        ]
+                    }
+                }
+            },
+            "required": [
+                "type",
+                "bitranges"
+            ],
+            "oneOf": [
+                {
+                    "required": [
+                        "bytes"
+                    ]
+                },
+                {
+                    "required": [
+                        "bitwidth"
+                    ]
+                }
             ],
             "additionalProperties": false
         },
@@ -1608,6 +1989,13 @@
                 },
                 "element": {
                     "$ref": "#/$customEncoding/node"
+                },
+                "count": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "countFrom": {
+                    "type": "string"
                 }
             },
             "required": [
@@ -1615,6 +2003,410 @@
                 "element"
             ],
             "additionalProperties": false
+        },
+        "switchNode": {
+            "title": "switch used as a customEncoding node (inline, reads from the buffer at the cursor)",
+            "type": "object",
+            "properties": {
+                "type": {
+                    "const": "switch"
+                },
+                "expression": {
+                    "oneOf": [
+                        {
+                            "$ref": "#/$customEncoding/node"
+                        },
+                        {
+                            "$ref": "#/$customEncoding/lengthOf"
+                        },
+                        {
+                            "$ref": "#/$customEncoding/pathExpression"
+                        }
+                    ]
+                },
+                "valueType": {
+                    "description": "Makes this a value switch: every case yields one value of this type, and the entry holding the switch takes that value.",
+                    "enum": [
+                        "address",
+                        "uint",
+                        "int",
+                        "bool",
+                        "string",
+                        "bytes"
+                    ]
+                },
+                "cases": {
+                    "type": "object",
+                    "propertyNames": {
+                        "$ref": "#/$customEncoding/caseKey"
+                    }
+                }
+            },
+            "required": [
+                "type",
+                "expression",
+                "cases"
+            ],
+            "additionalProperties": false,
+            "if": {
+                "required": [
+                    "valueType"
+                ]
+            },
+            "then": {
+                "$ref": "#/$customEncoding/valueSwitchCases"
+            },
+            "else": {
+                "properties": {
+                    "cases": {
+                        "$ref": "#/$customEncoding/switchCases"
+                    }
+                }
+            }
+        },
+        "valueSwitchCases": {
+            "title": "Cases of a value switch: each is reject, valueFrom, a node of valueType, or a literal of valueType",
+            "allOf": [
+                {
+                    "if": {
+                        "properties": {
+                            "valueType": {
+                                "const": "address"
+                            }
+                        }
+                    },
+                    "then": {
+                        "properties": {
+                            "cases": {
+                                "additionalProperties": {
+                                    "anyOf": [
+                                        {
+                                            "$ref": "#/$customEncoding/valueCaseAnyType"
+                                        },
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "format": {
+                                                    "const": "customEncoding"
+                                                },
+                                                "params": {
+                                                    "$ref": "#/$customEncoding/address"
+                                                }
+                                            },
+                                            "required": [
+                                                "format",
+                                                "params"
+                                            ],
+                                            "additionalProperties": false
+                                        },
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "value": {
+                                                    "type": "string",
+                                                    "pattern": "^0x[0-9a-fA-F]{40}$"
+                                                }
+                                            },
+                                            "required": [
+                                                "value"
+                                            ],
+                                            "additionalProperties": false
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                },
+                {
+                    "if": {
+                        "properties": {
+                            "valueType": {
+                                "const": "uint"
+                            }
+                        }
+                    },
+                    "then": {
+                        "properties": {
+                            "cases": {
+                                "additionalProperties": {
+                                    "anyOf": [
+                                        {
+                                            "$ref": "#/$customEncoding/valueCaseAnyType"
+                                        },
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "format": {
+                                                    "const": "customEncoding"
+                                                },
+                                                "params": {
+                                                    "$ref": "#/$customEncoding/uint"
+                                                }
+                                            },
+                                            "required": [
+                                                "format",
+                                                "params"
+                                            ],
+                                            "additionalProperties": false
+                                        },
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "value": {
+                                                    "anyOf": [
+                                                        {
+                                                            "type": "integer",
+                                                            "minimum": 0
+                                                        },
+                                                        {
+                                                            "type": "string",
+                                                            "pattern": "^0x[0-9a-fA-F]{1,64}$"
+                                                        }
+                                                    ]
+                                                }
+                                            },
+                                            "required": [
+                                                "value"
+                                            ],
+                                            "additionalProperties": false
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                },
+                {
+                    "if": {
+                        "properties": {
+                            "valueType": {
+                                "const": "int"
+                            }
+                        }
+                    },
+                    "then": {
+                        "properties": {
+                            "cases": {
+                                "additionalProperties": {
+                                    "anyOf": [
+                                        {
+                                            "$ref": "#/$customEncoding/valueCaseAnyType"
+                                        },
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "format": {
+                                                    "const": "customEncoding"
+                                                },
+                                                "params": {
+                                                    "$ref": "#/$customEncoding/int"
+                                                }
+                                            },
+                                            "required": [
+                                                "format",
+                                                "params"
+                                            ],
+                                            "additionalProperties": false
+                                        },
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "value": {
+                                                    "anyOf": [
+                                                        {
+                                                            "type": "integer"
+                                                        },
+                                                        {
+                                                            "type": "string",
+                                                            "pattern": "^-?0x[0-9a-fA-F]{1,64}$"
+                                                        }
+                                                    ]
+                                                }
+                                            },
+                                            "required": [
+                                                "value"
+                                            ],
+                                            "additionalProperties": false
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                },
+                {
+                    "if": {
+                        "properties": {
+                            "valueType": {
+                                "const": "bool"
+                            }
+                        }
+                    },
+                    "then": {
+                        "properties": {
+                            "cases": {
+                                "additionalProperties": {
+                                    "anyOf": [
+                                        {
+                                            "$ref": "#/$customEncoding/valueCaseAnyType"
+                                        },
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "format": {
+                                                    "const": "customEncoding"
+                                                },
+                                                "params": {
+                                                    "$ref": "#/$customEncoding/bool"
+                                                }
+                                            },
+                                            "required": [
+                                                "format",
+                                                "params"
+                                            ],
+                                            "additionalProperties": false
+                                        },
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "value": {
+                                                    "type": "boolean"
+                                                }
+                                            },
+                                            "required": [
+                                                "value"
+                                            ],
+                                            "additionalProperties": false
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                },
+                {
+                    "if": {
+                        "properties": {
+                            "valueType": {
+                                "const": "string"
+                            }
+                        }
+                    },
+                    "then": {
+                        "properties": {
+                            "cases": {
+                                "additionalProperties": {
+                                    "anyOf": [
+                                        {
+                                            "$ref": "#/$customEncoding/valueCaseAnyType"
+                                        },
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "format": {
+                                                    "const": "customEncoding"
+                                                },
+                                                "params": {
+                                                    "$ref": "#/$customEncoding/string"
+                                                }
+                                            },
+                                            "required": [
+                                                "format",
+                                                "params"
+                                            ],
+                                            "additionalProperties": false
+                                        },
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "value": {
+                                                    "type": "string"
+                                                }
+                                            },
+                                            "required": [
+                                                "value"
+                                            ],
+                                            "additionalProperties": false
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                },
+                {
+                    "if": {
+                        "properties": {
+                            "valueType": {
+                                "const": "bytes"
+                            }
+                        }
+                    },
+                    "then": {
+                        "properties": {
+                            "cases": {
+                                "additionalProperties": {
+                                    "anyOf": [
+                                        {
+                                            "$ref": "#/$customEncoding/valueCaseAnyType"
+                                        },
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "format": {
+                                                    "const": "customEncoding"
+                                                },
+                                                "params": {
+                                                    "$ref": "#/$customEncoding/bytes"
+                                                }
+                                            },
+                                            "required": [
+                                                "format",
+                                                "params"
+                                            ],
+                                            "additionalProperties": false
+                                        },
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "value": {
+                                                    "type": "string",
+                                                    "pattern": "^0x([0-9a-fA-F]{2})*$"
+                                                }
+                                            },
+                                            "required": [
+                                                "value"
+                                            ],
+                                            "additionalProperties": false
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+        "valueCaseAnyType": {
+            "title": "Value switch case valid for any valueType: reject, or the value at a path (consumes no bytes)",
+            "oneOf": [
+                {
+                    "const": "reject"
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "valueFrom": {
+                            "type": "string"
+                        }
+                    },
+                    "required": [
+                        "valueFrom"
+                    ],
+                    "additionalProperties": false
+                }
+            ]
         },
         "fieldSwitch": {
             "title": "switch used as a field-format-specification key (sibling-path-sourced form)",
@@ -1643,6 +2435,9 @@
                         },
                         {
                             "$ref": "#/$customEncoding/node"
+                        },
+                        {
+                            "$ref": "#/$customEncoding/lengthOf"
                         }
                     ]
                 },
@@ -1656,8 +2451,46 @@
             ],
             "additionalProperties": false
         },
+        "pathExpression": {
+            "title": "switch expression reading an already-decoded value at a path, consuming no bytes",
+            "type": "object",
+            "properties": {
+                "path": {
+                    "type": "string"
+                },
+                "mask": {
+                    "type": "string",
+                    "pattern": "^0x[0-9a-fA-F]+$|^0b[01]+$"
+                }
+            },
+            "required": [
+                "path"
+            ],
+            "additionalProperties": false
+        },
+        "lengthOf": {
+            "title": "switch expression yielding the length of a value: bytes for bytes and string, elements for arrays and sequences",
+            "type": "object",
+            "properties": {
+                "lengthOf": {
+                    "type": "string"
+                }
+            },
+            "required": [
+                "lengthOf"
+            ],
+            "additionalProperties": false
+        },
+        "caseKey": {
+            "title": "A switch case key: $default, a hex value, or a decimal length for lengthOf",
+            "type": "string",
+            "pattern": "^(\\$default|0x[0-9a-fA-F]+|[0-9]+)$"
+        },
         "switchCases": {
             "title": "A switch cases map, including the reserved $default key",
+            "propertyNames": {
+                "$ref": "#/$customEncoding/caseKey"
+            },
             "type": "object",
             "additionalProperties": {
                 "$ref": "#/$customEncoding/switchCaseValue"
@@ -1676,6 +2509,12 @@
                         },
                         "params": {
                             "$ref": "#/$customEncoding/node"
+                        },
+                        "intent": {
+                            "$ref": "#/$display/intent"
+                        },
+                        "interpolatedIntent": {
+                            "$ref": "#/$display/interpolatedIntent"
                         }
                     },
                     "required": [
@@ -1740,6 +2579,9 @@
                             "intent": {
                                 "$ref": "#/$display/intent"
                             },
+                            "interpolatedIntent": {
+                                "$ref": "#/$display/interpolatedIntent"
+                            },
                             "fields": {
                                 "$ref": "#/$display/fields"
                             }
@@ -1775,11 +2617,17 @@
                         },
                         {
                             "$ref": "#/$customEncoding/node"
+                        },
+                        {
+                            "$ref": "#/$customEncoding/lengthOf"
                         }
                     ]
                 },
                 "cases": {
                     "type": "object",
+                    "propertyNames": {
+                        "$ref": "#/$customEncoding/caseKey"
+                    },
                     "additionalProperties": {
                         "oneOf": [
                             {
@@ -1921,6 +2769,9 @@
                         },
                         "cases": {
                             "type": "object",
+                            "propertyNames": {
+                                "$ref": "#/$customEncoding/caseKey"
+                            },
                             "additionalProperties": {
                                 "enum": [
                                     "CALL",
